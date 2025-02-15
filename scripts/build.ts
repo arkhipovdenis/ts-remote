@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ts, { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
-import { getCompilerOptions } from '../packages/lib';
+import { getCompilerOptions } from '../packages/lib/getCompilerOptions';
 
 const cwd = process.cwd();
 
@@ -15,7 +15,7 @@ if (fs.existsSync(OUTPUT_PATH)) {
 
 const program = ts.createProgram(
   [
-    ts.sys.resolvePath(`${cwd}/packages/compiler/index.ts`),
+    ts.sys.resolvePath(`${cwd}/packages/builder/index.ts`),
     ts.sys.resolvePath(`${cwd}/packages/loader/index.ts`),
   ],
   {
@@ -23,7 +23,7 @@ const program = ts.createProgram(
     module: ModuleKind.CommonJS,
     outDir: OUTPUT_PATH,
     target: ScriptTarget.ESNext,
-    moduleResolution: ModuleResolutionKind.Node10,
+    moduleResolution: ModuleResolutionKind.NodeNext,
   },
 );
 

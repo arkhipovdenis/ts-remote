@@ -4,23 +4,25 @@
   "description": "Solving the problem of transferring TypeScript type declarations between third-party javascript modules",
   "keywords": [
     "dts",
-    "ts remote",
+    "dts remote",
     "dts compiler",
-    "microfrontend",
-    "types",
-    "typescript"
+    "dts builder",
+    "dts gen",
+    "dts microfrontend"
   ],
   "scripts": {
     "prettier:fix": "prettier ./packages/**/*.ts -l --write",
     "prettier:check": "prettier ./packages/**/*.ts -l --check",
     "typecheck": "tsc --noEmit",
-    "build": "ts-node --transpileOnly ./scripts/build.ts"
+    "prebuild": "npm run typecheck",
+    "build": "ts-node --transpileOnly ./scripts/build.ts",
+    "test:compile": "ts-node --transpileOnly packages/builder/__test__/builder.test.ts"
   },
   "exports": {
-    "./compiler": {
-      "types": "./compiler/index.d.ts",
-      "require": "./compiler/index.js",
-      "default": "./compiler/index.js"
+    "./builder": {
+      "types": "./builder/index.d.ts",
+      "require": "./builder/index.js",
+      "default": "./builder/index.js"
     },
     "./loader": {
       "types": "./loader/index.d.ts",
@@ -40,12 +42,12 @@
   },
   "homepage": "https://github.com/TheMontanyes/ts-remote.git#readme",
   "peerDependencies": {
-    "typescript": ">=4.5"
+    "typescript": ">=4.9"
   },
   "devDependencies": {
     "@types/node": "^20.1.0",
     "prettier": "^2.8.8",
     "ts-node": "^10.9.2",
-    "typescript": "5.5.2"
+    "typescript": "5.7.3"
   }
 }

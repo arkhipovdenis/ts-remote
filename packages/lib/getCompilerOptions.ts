@@ -1,31 +1,26 @@
 import ts from 'typescript';
 import path from 'node:path';
 
-export const getCompilerOptions = (pathToTSConfig?: string): ts.CompilerOptions => {
+export const getCompilerOptions = (
+  pathToTSConfig?: string,
+  override: ts.CompilerOptions = {},
+): ts.CompilerOptions => {
   try {
-    if (!pathToTSConfig) throw new Error();
+    if (!pathToTSConfig) throw new Error('No tsconfig path provided');
+
+    const basePath = path.dirname(pathToTSConfig);
 
     const { config } = ts.readConfigFile(pathToTSConfig, ts.sys.readFile);
 
-    let { options: compilerOptions } = ts.convertCompilerOptionsFromJson(
-      config.compilerOptions,
-      '',
-    );
+    const parsedConfig = ts.parseJsonConfigFileContent(config, ts.sys, basePath);
 
-    if (config.extends) {
-      const extendConfigPath = path.relative(path.dirname(pathToTSConfig), config.extends);
-
-      compilerOptions = {
-        ...compilerOptions,
-        ...getCompilerOptions(extendConfigPath),
-      };
-    }
-
-    return compilerOptions;
+    return {
+      ...parsedConfig.options,
+      ...override,
+    };
   } catch (e) {
     throw new Error(
-      `ts-remote: [ERROR] Error reading tsconfig.json. Check the specified path or the validity of the file.\n
-      ${e}`,
+      `ts-remote: [ERROR] Error reading tsconfig.json. Check the specified path or the validity of the file.`,
     );
   }
 };

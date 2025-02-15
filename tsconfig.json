@@ -3,11 +3,10 @@
     "outDir": "dist",
     "target": "ESNext",
     "lib": [
-      "esnext"
+      "ESNext"
     ],
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "allowJs": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,6 +16,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "declaration": true,
-    "resolveJsonModule": true
-  }
+    "resolveJsonModule": true,
+    "experimentalDecorators": true
+  },
+  "exclude": ["**/__test__/**"]
 }
