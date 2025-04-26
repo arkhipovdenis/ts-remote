@@ -1,14 +1,20 @@
 import ts from 'typescript';
 import { canHaveName } from './helpers';
 
-export class Emitter {
-  static #program: ts.Program;
-  static #typeChecker: ts.TypeChecker;
-  static #compilerOptions: ts.CompilerOptions;
-  static #compilerHost: ts.CompilerHost;
-  static #printer: ts.Printer;
-  static #moduleResolutionCache: ts.ModuleResolutionCache;
+type EmitterOptions = {
+  rootFile: ts.SourceFile;
+  program: ts.Program;
+  compilerHost: ts.CompilerHost;
+};
 
+export class Emitter {
+  #program: ts.Program;
+  #typeChecker: ts.TypeChecker;
+  #compilerOptions: ts.CompilerOptions;
+  #compilerHost: ts.CompilerHost;
+  #printer: ts.Printer;
+  #moduleResolutionCache: ts.ModuleResolutionCache;
+  #rootFile: ts.SourceFile;
   #aliasImportMap = new Map<string, string>();
   #importedProperties = new Set<string>();
   #emittedFiles = new Set<string>();
@@ -17,7 +23,29 @@ export class Emitter {
   #imports: string[] = [];
   #exports: string[] = [];
 
-  constructor(private rootFile: ts.SourceFile) {}
+  constructor({ program, compilerHost, rootFile }: EmitterOptions) {
+    this.#program = program;
+    this.#printer = ts.createPrinter();
+    this.#typeChecker = program.getTypeChecker();
+    this.#compilerOptions = program.getCompilerOptions();
+    this.#compilerHost = compilerHost;
+    this.#rootFile = rootFile;
+    this.#moduleResolutionCache = ts.createModuleResolutionCache(
+      compilerHost.getCurrentDirectory(),
+      compilerHost.getCanonicalFileName,
+      this.#compilerOptions,
+    );
+  }
+
+  private resolveModule(moduleName: string, containingFile: string) {
+    return ts.resolveModuleName(
+      moduleName,
+      containingFile,
+      this.#compilerOptions,
+      this.#compilerHost,
+      this.#moduleResolutionCache,
+    ).resolvedModule;
+  }
 
   private get declaration(): ts.TranspileOutput {
     return ts.transpileDeclaration(
@@ -26,20 +54,7 @@ export class Emitter {
         this.#declarationParts.join(''),
         this.#exports.join(ts.sys.newLine),
       ].join(ts.sys.newLine),
-      { compilerOptions: Emitter.#compilerOptions },
-    );
-  }
-
-  static initialize(program: ts.Program, host: ts.CompilerHost) {
-    this.#program = program;
-    this.#printer = ts.createPrinter();
-    this.#typeChecker = program.getTypeChecker();
-    this.#compilerOptions = program.getCompilerOptions();
-    this.#compilerHost = host;
-    this.#moduleResolutionCache = ts.createModuleResolutionCache(
-      host.getCurrentDirectory(),
-      host.getCanonicalFileName,
-      this.#compilerOptions,
+      { compilerOptions: this.#compilerOptions },
     );
   }
 
@@ -109,7 +124,7 @@ export class Emitter {
   ): ts.SourceFile {
     const statementVisitor = this.getStatementVisitor(context);
 
-    const isRootFile = sourceFile.fileName === this.rootFile.fileName;
+    const isRootFile = sourceFile.fileName === this.#rootFile.fileName;
 
     const exportsSpecifiers: ts.ExportSpecifier[] = [];
 
@@ -120,10 +135,10 @@ export class Emitter {
     const processNamedExportBindings = (exportClause: ts.NamedExportBindings) => {
       exportClause.forEachChild((node) => {
         if (ts.isExportSpecifier(node) && !hasSpecifier(node.name.text)) {
-          const symbolAtLocation = Emitter.#typeChecker.getSymbolAtLocation(node.name);
+          const symbolAtLocation = this.#typeChecker.getSymbolAtLocation(node.name);
 
           if (symbolAtLocation) {
-            const aliasedSymbol = Emitter.#typeChecker.getAliasedSymbol(symbolAtLocation);
+            const aliasedSymbol = this.#typeChecker.getAliasedSymbol(symbolAtLocation);
 
             if (aliasedSymbol) {
               const isDifferentName = node.name.text !== aliasedSymbol.name;
@@ -147,7 +162,7 @@ export class Emitter {
 
     const visitor: ts.Visitor = (rootNode: ts.Node): ts.Node | undefined => {
       if (this.#visitedCache.has(rootNode)) {
-        return;
+        return rootNode;
       }
 
       this.#visitedCache.add(rootNode);
@@ -155,7 +170,7 @@ export class Emitter {
       if (ts.isExportAssignment(rootNode)) {
         if (isRootFile) {
           this.#exports.push(
-            Emitter.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
+            this.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
           );
         }
 
@@ -164,37 +179,32 @@ export class Emitter {
 
       if (ts.isImportDeclaration(rootNode) || ts.isExportDeclaration(rootNode)) {
         if (rootNode.moduleSpecifier) {
-          const resolvedModuleName = ts.resolveModuleName(
+          const resolvedModule = this.resolveModule(
             rootNode.moduleSpecifier.getText().replace(/['"]/g, ''),
             sourceFile.fileName,
-            Emitter.#compilerOptions,
-            Emitter.#compilerHost,
-            Emitter.#moduleResolutionCache,
-          ).resolvedModule;
+          );
 
           if (ts.isImportDeclaration(rootNode)) {
             this.collectAliases(rootNode);
           }
 
-          if (!resolvedModuleName || resolvedModuleName.isExternalLibraryImport) {
+          if (!resolvedModule || resolvedModule.isExternalLibraryImport) {
             if (ts.isImportDeclaration(rootNode)) {
               this.#imports.push(
-                Emitter.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
+                this.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
               );
             }
 
             if (ts.isExportDeclaration(rootNode)) {
               this.#exports.unshift(
-                Emitter.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
+                this.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
               );
             }
 
             return;
           }
 
-          const symbolAtLocation = Emitter.#typeChecker.getSymbolAtLocation(
-            rootNode.moduleSpecifier,
-          );
+          const symbolAtLocation = this.#typeChecker.getSymbolAtLocation(rootNode.moduleSpecifier);
 
           if (symbolAtLocation?.declarations) {
             const [declaration] = symbolAtLocation.declarations;
@@ -229,10 +239,10 @@ export class Emitter {
 
                 processNamedExportBindings(rootNode.exportClause);
               } else {
-                const symbol = Emitter.#typeChecker.getSymbolAtLocation(module);
+                const symbol = this.#typeChecker.getSymbolAtLocation(module);
 
                 if (symbol) {
-                  const exportsOfModule = Emitter.#typeChecker.getExportsOfModule(symbol);
+                  const exportsOfModule = this.#typeChecker.getExportsOfModule(symbol);
 
                   for (const exportSymbol of exportsOfModule) {
                     if (!hasSpecifier(exportSymbol.name)) {
@@ -292,31 +302,26 @@ export class Emitter {
             ? rootNode.argument.literal.text
             : rootNode.argument.getText();
 
-        const resolvedModuleName = ts.resolveModuleName(
+        const resolvedModule = this.resolveModule(
           importPath.replace(/['"]/g, ''),
           sourceFile.fileName,
-          Emitter.#compilerOptions,
-          Emitter.#compilerHost,
-          Emitter.#moduleResolutionCache,
-        ).resolvedModule;
+        );
 
-        if (resolvedModuleName?.isExternalLibraryImport) {
+        if (resolvedModule?.isExternalLibraryImport) {
           return rootNode;
         }
 
-        if (resolvedModuleName?.resolvedFileName) {
-          const importedSourceFile = Emitter.#program.getSourceFile(
-            resolvedModuleName.resolvedFileName,
-          );
+        if (resolvedModule?.resolvedFileName) {
+          const importedSourceFile = this.#program.getSourceFile(resolvedModule.resolvedFileName);
 
           if (importedSourceFile) {
             this.emit(importedSourceFile);
 
             if (rootNode.isTypeOf && !rootNode.qualifier) {
-              const moduleSymbol = Emitter.#typeChecker.getSymbolAtLocation(importedSourceFile);
+              const moduleSymbol = this.#typeChecker.getSymbolAtLocation(importedSourceFile);
 
               if (moduleSymbol) {
-                const type = Emitter.#typeChecker.getTypeAtLocation(rootNode);
+                const type = this.#typeChecker.getTypeAtLocation(rootNode);
                 const properties = type.getProperties();
 
                 return context.factory.createTypeLiteralNode(
@@ -380,12 +385,12 @@ export class Emitter {
             : rootNode;
 
           if (isRootFile && canHaveName(_node)) {
-            const symbol = Emitter.#typeChecker.getSymbolAtLocation(_node.name);
+            const symbol = this.#typeChecker.getSymbolAtLocation(_node.name);
 
             if (symbol) {
               const aliasedSymbol =
                 symbol.flags & ts.SymbolFlags.Alias
-                  ? Emitter.#typeChecker.getAliasedSymbol(symbol)
+                  ? this.#typeChecker.getAliasedSymbol(symbol)
                   : symbol;
 
               const isDifferentName = symbol.name !== aliasedSymbol?.name;
@@ -424,22 +429,22 @@ export class Emitter {
         }
       }
 
-      // // TypeAlias.NamespaceType
-      // if (ts.isQualifiedName(rootNode) && ts.isIdentifier(rootNode.left)) {
-      //   let currentNode = rootNode;
-      //   let alias = rootNode.left.text;
-      //
-      //   // Пытаемся пройтись по всей цепочке qualified names
-      //   while (ts.isQualifiedName(currentNode.right)) {
-      //     currentNode = currentNode.right;
-      //   }
-      //
-      //   // Проверка наличия alias в map
-      //   if (this.#aliasImportMap.has(alias)) {
-      //     this.#importedProperties.add(currentNode.right.text);
-      //     return context.factory.createIdentifier(currentNode.right.text);
-      //   }
-      // }
+      // TypeAlias.NamespaceType
+      if (ts.isQualifiedName(rootNode) && ts.isIdentifier(rootNode.left)) {
+        let currentNode = rootNode;
+        let alias = rootNode.left.text;
+
+        // Пытаемся пройтись по всей цепочке qualified names
+        while (ts.isQualifiedName(currentNode.right)) {
+          currentNode = currentNode.right;
+        }
+
+        // Проверка наличия alias в map
+        if (this.#aliasImportMap.has(alias)) {
+          this.#importedProperties.add(currentNode.right.text);
+          return context.factory.createIdentifier(currentNode.right.text);
+        }
+      }
 
       return ts.visitEachChild(rootNode, visitor, context);
     };
@@ -454,7 +459,7 @@ export class Emitter {
       );
 
       this.#exports.unshift(
-        Emitter.#printer.printNode(ts.EmitHint.Unspecified, exportDeclaration, visitedFile),
+        this.#printer.printNode(ts.EmitHint.Unspecified, exportDeclaration, visitedFile),
       );
     }
 
@@ -478,7 +483,7 @@ export class Emitter {
 
     this.#emittedFiles.add(sourceFile.fileName);
 
-    Emitter.#program.emit(
+    this.#program.emit(
       sourceFile,
       (_, text) => {
         this.#declarationParts.push(text);

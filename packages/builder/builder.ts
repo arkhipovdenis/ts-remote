@@ -13,6 +13,7 @@ const baseTsConfigPath = path.resolve(cwd, 'tsconfig.json');
 
 export default async function main(options: BuilderOptions) {
   console.time('DTS build');
+  console.log(new Date().toLocaleString());
 
   const { entries, output, tsconfig, additionalDeclarations = [] } = options;
   const config = tsconfig || baseTsConfigPath;
@@ -56,8 +57,6 @@ export default async function main(options: BuilderOptions) {
     compilerHost,
   );
 
-  Emitter.initialize(program, compilerHost);
-
   const modulesContent: string[] = [];
 
   entryFiles.forEach((fileName) => {
@@ -66,7 +65,7 @@ export default async function main(options: BuilderOptions) {
     const variant = variantByModule.get(moduleName)!;
 
     if (sourceFile) {
-      const emitter = new Emitter(sourceFile);
+      const emitter = new Emitter({ compilerHost, program, rootFile: sourceFile });
       const emitResult = emitter.emit(sourceFile)!;
 
       switch (variant) {
