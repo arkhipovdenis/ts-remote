@@ -1,14 +1,15 @@
 {
   "name": "ts-remote",
-  "version": "1.1.1",
-  "description": "Solving the problem of transferring TypeScript type declarations between third-party javascript modules",
+  "version": "2.0.0",
+  "description": "TypeScript declaration builder for sharing types between independent modules",
   "keywords": [
+    "typescript",
     "dts",
-    "dts remote",
-    "dts compiler",
-    "dts builder",
-    "dts gen",
-    "dts microfrontend"
+    "declarations",
+    "builder",
+    "microfrontend",
+    "types",
+    "type-sharing"
   ],
   "scripts": {
     "prettier:fix": "prettier ./packages/**/*.ts -l --write",
@@ -24,23 +25,18 @@
       "require": "./builder/index.js",
       "default": "./builder/index.js"
     },
-    "./loader": {
-      "types": "./loader/index.d.ts",
-      "require": "./loader/index.js",
-      "default": "./loader/index.js"
-    },
     "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TheMontanyes/ts-remote.git"
+    "url": "git+https://github.com/arkhipovdenis/ts-remote.git"
   },
   "author": "Denis Arkhipov",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/TheMontanyes/ts-remote.git/issues"
+    "url": "https://github.com/arkhipovdenis/ts-remote.git/issues"
   },
-  "homepage": "https://github.com/TheMontanyes/ts-remote.git#readme",
+  "homepage": "https://github.com/arkhipovdenis/ts-remote.git#readme",
   "peerDependencies": {
     "typescript": ">=4.9"
   },
@@ -48,6 +44,6 @@
     "@types/node": "^20.1.0",
     "prettier": "^2.8.8",
     "ts-node": "^10.9.2",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   }
 }

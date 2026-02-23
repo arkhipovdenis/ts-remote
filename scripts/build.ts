@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ts, { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'typescript';
-import { getCompilerOptions } from '../packages/lib/getCompilerOptions';
+import { getCompilerOptions } from '../packages/builder/get-compiler-options';
 
 const cwd = process.cwd();
 
@@ -13,19 +13,13 @@ if (fs.existsSync(OUTPUT_PATH)) {
   fs.rmSync(OUTPUT_PATH, { force: true, recursive: true });
 }
 
-const program = ts.createProgram(
-  [
-    ts.sys.resolvePath(`${cwd}/packages/builder/index.ts`),
-    ts.sys.resolvePath(`${cwd}/packages/loader/index.ts`),
-  ],
-  {
-    ...getCompilerOptions(path.resolve(cwd, 'tsconfig.json')),
-    module: ModuleKind.CommonJS,
-    outDir: OUTPUT_PATH,
-    target: ScriptTarget.ESNext,
-    moduleResolution: ModuleResolutionKind.NodeNext,
-  },
-);
+const program = ts.createProgram([ts.sys.resolvePath(`${cwd}/packages/builder/index.ts`)], {
+  ...getCompilerOptions(path.resolve(cwd, 'tsconfig.json')),
+  module: ModuleKind.CommonJS,
+  outDir: OUTPUT_PATH,
+  target: ScriptTarget.ESNext,
+  moduleResolution: ModuleResolutionKind.NodeNext,
+});
 
 program.emit();
 

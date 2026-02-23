@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { BuilderError } from './builderError';
+import { BuilderError } from '../shared/errors';
 
 export const validateExtension = (filename: string) => {
   const ext = path.extname(filename);

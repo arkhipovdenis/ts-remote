@@ -5,6 +5,7 @@ type EmitterOptions = {
   rootFile: ts.SourceFile;
   program: ts.Program;
   compilerHost: ts.CompilerHost;
+  moduleResolutionCache?: ts.ModuleResolutionCache;
 };
 
 export class Emitter {
@@ -16,25 +17,36 @@ export class Emitter {
   #moduleResolutionCache: ts.ModuleResolutionCache;
   #rootFile: ts.SourceFile;
   #aliasImportMap = new Map<string, string>();
-  #importedProperties = new Set<string>();
   #emittedFiles = new Set<string>();
   #visitedCache = new WeakSet<ts.Node>();
   #declarationParts: string[] = [];
   #imports: string[] = [];
   #exports: string[] = [];
 
-  constructor({ program, compilerHost, rootFile }: EmitterOptions) {
+  constructor({ program, compilerHost, rootFile, moduleResolutionCache }: EmitterOptions) {
     this.#program = program;
     this.#printer = ts.createPrinter();
     this.#typeChecker = program.getTypeChecker();
     this.#compilerOptions = program.getCompilerOptions();
     this.#compilerHost = compilerHost;
     this.#rootFile = rootFile;
-    this.#moduleResolutionCache = ts.createModuleResolutionCache(
-      compilerHost.getCurrentDirectory(),
-      compilerHost.getCanonicalFileName,
-      this.#compilerOptions,
-    );
+    this.#moduleResolutionCache =
+      moduleResolutionCache ??
+      ts.createModuleResolutionCache(
+        compilerHost.getCurrentDirectory(),
+        compilerHost.getCanonicalFileName,
+        this.#compilerOptions,
+      );
+  }
+
+  setRootFile(rootFile: ts.SourceFile): void {
+    this.#rootFile = rootFile;
+  }
+
+  resetBuffers(): void {
+    this.#declarationParts = [];
+    this.#imports = [];
+    this.#exports = [];
   }
 
   private resolveModule(moduleName: string, containingFile: string) {
@@ -47,15 +59,28 @@ export class Emitter {
     ).resolvedModule;
   }
 
+  private getModuleNameFromSpecifier(specifier: ts.Expression): string {
+    if (ts.isStringLiteral(specifier)) {
+      return specifier.text;
+    }
+    return specifier.getText().replace(/['"]/g, '');
+  }
+
   private get declaration(): ts.TranspileOutput {
-    return ts.transpileDeclaration(
-      [
-        this.#imports.join(ts.sys.newLine),
-        this.#declarationParts.join(''),
-        this.#exports.join(ts.sys.newLine),
-      ].join(ts.sys.newLine),
-      { compilerOptions: this.#compilerOptions },
-    );
+    const parts: string[] = [];
+
+    if (this.#imports.length > 0) {
+      parts.push(this.#imports.join(ts.sys.newLine), ts.sys.newLine);
+    }
+
+    parts.push(...this.#declarationParts);
+
+    if (this.#exports.length > 0) {
+      parts.push(ts.sys.newLine, this.#exports.join(ts.sys.newLine));
+    }
+
+    const code = parts.join('');
+    return ts.transpileDeclaration(code, { compilerOptions: this.#compilerOptions });
   }
 
   private collectAliases(node: ts.ImportDeclaration) {
@@ -127,9 +152,13 @@ export class Emitter {
     const isRootFile = sourceFile.fileName === this.#rootFile.fileName;
 
     const exportsSpecifiers: ts.ExportSpecifier[] = [];
+    const seenSpecifiers = new Set<string>();
 
-    const hasSpecifier = (name: string) => {
-      return exportsSpecifiers.some((specifier) => specifier.name.text === name);
+    const hasSpecifier = (name: string) => seenSpecifiers.has(name);
+
+    const addSpecifier = (specifier: ts.ExportSpecifier) => {
+      seenSpecifiers.add(specifier.name.text);
+      exportsSpecifiers.push(specifier);
     };
 
     const processNamedExportBindings = (exportClause: ts.NamedExportBindings) => {
@@ -144,7 +173,7 @@ export class Emitter {
               const isDifferentName = node.name.text !== aliasedSymbol.name;
 
               if (isDifferentName) {
-                exportsSpecifiers.push(
+                addSpecifier(
                   context.factory.createExportSpecifier(
                     node.isTypeOnly,
                     aliasedSymbol.name,
@@ -152,7 +181,7 @@ export class Emitter {
                   ),
                 );
               } else {
-                exportsSpecifiers.push(node);
+                addSpecifier(node);
               }
             }
           }
@@ -179,10 +208,8 @@ export class Emitter {
 
       if (ts.isImportDeclaration(rootNode) || ts.isExportDeclaration(rootNode)) {
         if (rootNode.moduleSpecifier) {
-          const resolvedModule = this.resolveModule(
-            rootNode.moduleSpecifier.getText().replace(/['"]/g, ''),
-            sourceFile.fileName,
-          );
+          const moduleName = this.getModuleNameFromSpecifier(rootNode.moduleSpecifier);
+          const resolvedModule = this.resolveModule(moduleName, sourceFile.fileName);
 
           if (ts.isImportDeclaration(rootNode)) {
             this.collectAliases(rootNode);
@@ -218,7 +245,7 @@ export class Emitter {
                   !hasSpecifier(rootNode.exportClause.name.text)
                 ) {
                   // export {namespaceName -> rootNode.exportClause.name.text}
-                  exportsSpecifiers.push(
+                  addSpecifier(
                     context.factory.createExportSpecifier(
                       rootNode.isTypeOnly,
                       undefined,
@@ -246,7 +273,7 @@ export class Emitter {
 
                   for (const exportSymbol of exportsOfModule) {
                     if (!hasSpecifier(exportSymbol.name)) {
-                      exportsSpecifiers.push(
+                      addSpecifier(
                         context.factory.createExportSpecifier(
                           rootNode.isTypeOnly,
                           undefined,
@@ -275,14 +302,26 @@ export class Emitter {
       if (ts.isClassDeclaration(rootNode)) {
         const members = context.factory.createNodeArray(
           rootNode.members.filter((member) => {
+            // Filter out private/protected modifiers
             if (ts.canHaveModifiers(member) && member.modifiers) {
-              return !member.modifiers.some(
+              const hasPrivateModifier = member.modifiers.some(
                 (modifier) =>
-                  modifier.kind === ts.SyntaxKind.PrivateKeyword || ts.SyntaxKind.ProtectedKeyword,
+                  modifier.kind === ts.SyntaxKind.PrivateKeyword ||
+                  modifier.kind === ts.SyntaxKind.ProtectedKeyword,
               );
+              if (hasPrivateModifier) {
+                return false;
+              }
             }
 
-            return member;
+            // Filter out JavaScript private identifiers (#field)
+            if ('name' in member && member.name) {
+              if (ts.isPrivateIdentifier(member.name)) {
+                return false;
+              }
+            }
+
+            return true;
           }),
         );
 
@@ -297,15 +336,14 @@ export class Emitter {
       }
 
       if (ts.isImportTypeNode(rootNode)) {
-        const importPath =
-          ts.isLiteralTypeNode(rootNode.argument) && ts.isStringLiteral(rootNode.argument.literal)
-            ? rootNode.argument.literal.text
-            : rootNode.argument.getText();
+        let importPath: string;
+        if (ts.isLiteralTypeNode(rootNode.argument) && ts.isStringLiteral(rootNode.argument.literal)) {
+          importPath = rootNode.argument.literal.text;
+        } else {
+          importPath = rootNode.argument.getText().replace(/['"]/g, '');
+        }
 
-        const resolvedModule = this.resolveModule(
-          importPath.replace(/['"]/g, ''),
-          sourceFile.fileName,
-        );
+        const resolvedModule = this.resolveModule(importPath, sourceFile.fileName);
 
         if (resolvedModule?.isExternalLibraryImport) {
           return rootNode;
@@ -395,7 +433,7 @@ export class Emitter {
 
               const isDifferentName = symbol.name !== aliasedSymbol?.name;
 
-              exportsSpecifiers.push(
+              addSpecifier(
                 context.factory.createExportSpecifier(
                   false,
                   isDifferentName ? aliasedSymbol?.name : undefined,
@@ -441,7 +479,6 @@ export class Emitter {
 
         // Проверка наличия alias в map
         if (this.#aliasImportMap.has(alias)) {
-          this.#importedProperties.add(currentNode.right.text);
           return context.factory.createIdentifier(currentNode.right.text);
         }
       }
@@ -497,12 +534,9 @@ export class Emitter {
   }
 
   dispose() {
-    this.#importedProperties.clear();
     this.#aliasImportMap.clear();
     this.#emittedFiles.clear();
     this.#visitedCache = new WeakSet<ts.Node>();
-    this.#declarationParts = [];
-    this.#imports = [];
-    this.#exports = [];
+    this.resetBuffers();
   }
 }

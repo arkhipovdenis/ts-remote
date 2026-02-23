@@ -1,10 +1,17 @@
 import path from 'node:path';
 import process from 'node:process';
 import ts from 'typescript';
-import { BuilderOptions, DeclarationVariant, ModuleName } from './contract.public';
-import { validateExtension } from '../lib/validateExtension';
-import { getCompilerOptions } from '../lib/getCompilerOptions';
+import { BuilderOptions, DeclarationVariant, ModuleName } from './contract-public';
+import { validateExtension } from './validate-extension';
+import { getCompilerOptions } from './get-compiler-options';
 import { Emitter } from './emitter';
+import {
+  DuplicateFilenameError,
+  DuplicateModuleError,
+  EmitFailedError,
+  SourceFileNotFoundError,
+} from '../shared/errors';
+import { removeDeclareInAmbientContext } from './utils';
 
 const cwd = process.cwd();
 const baseOutputPath = path.resolve(cwd, '@types', 'types.d.ts');
@@ -33,13 +40,21 @@ export default async function main(options: BuilderOptions) {
   });
 
   const { entryFiles, moduleByFilename, variantByModule } = entries.reduce(
-    (acc, [moduleName, { filename, variant }]) => {
+    (acc, { name, filename, variant }) => {
       if (validateExtension(filename)) {
         acc.entryFiles.push(filename);
       }
 
-      acc.moduleByFilename.set(filename, moduleName);
-      acc.variantByModule.set(moduleName, variant ?? DeclarationVariant.Module);
+      if (acc.moduleByFilename.has(filename)) {
+        throw new DuplicateFilenameError(filename);
+      }
+
+      if (acc.variantByModule.has(name)) {
+        throw new DuplicateModuleError(name);
+      }
+
+      acc.moduleByFilename.set(filename, name);
+      acc.variantByModule.set(name, variant ?? DeclarationVariant.Module);
 
       return acc;
     },
@@ -57,6 +72,24 @@ export default async function main(options: BuilderOptions) {
     compilerHost,
   );
 
+  const moduleResolutionCache = ts.createModuleResolutionCache(
+    compilerHost.getCurrentDirectory(),
+    compilerHost.getCanonicalFileName,
+    compilerOptions,
+  );
+
+  const firstSourceFile = program.getSourceFile(entryFiles[0]);
+  if (!firstSourceFile) {
+    throw new SourceFileNotFoundError(entryFiles[0]);
+  }
+
+  const sharedEmitter = new Emitter({
+    compilerHost,
+    program,
+    rootFile: firstSourceFile,
+    moduleResolutionCache,
+  });
+
   const modulesContent: string[] = [];
 
   entryFiles.forEach((fileName) => {
@@ -65,8 +98,12 @@ export default async function main(options: BuilderOptions) {
     const variant = variantByModule.get(moduleName)!;
 
     if (sourceFile) {
-      const emitter = new Emitter({ compilerHost, program, rootFile: sourceFile });
-      const emitResult = emitter.emit(sourceFile)!;
+      sharedEmitter.setRootFile(sourceFile);
+      const emitResult = sharedEmitter.emit(sourceFile);
+
+      if (!emitResult) {
+        throw new EmitFailedError(fileName);
+      }
 
       switch (variant) {
         case DeclarationVariant.Namespace:
@@ -81,11 +118,17 @@ export default async function main(options: BuilderOptions) {
           );
       }
 
-      emitter.dispose();
+      sharedEmitter.resetBuffers();
     }
   });
 
-  ts.sys.writeFile(outputPath, outputFormat(modulesContent.join(ts.sys.newLine)), true);
+  sharedEmitter.dispose();
+
+  // Combine all modules and remove redundant 'declare' modifiers inside ambient contexts
+  const finalCode = modulesContent.join(ts.sys.newLine);
+  const cleanedCode = removeDeclareInAmbientContext(finalCode);
+
+  ts.sys.writeFile(outputPath, outputFormat(cleanedCode), true);
 
   console.timeEnd('DTS build');
 }
