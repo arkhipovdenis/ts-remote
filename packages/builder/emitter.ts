@@ -211,10 +211,6 @@ export class Emitter {
           const moduleName = this.getModuleNameFromSpecifier(rootNode.moduleSpecifier);
           const resolvedModule = this.resolveModule(moduleName, sourceFile.fileName);
 
-          if (ts.isImportDeclaration(rootNode)) {
-            this.collectAliases(rootNode);
-          }
-
           if (!resolvedModule || resolvedModule.isExternalLibraryImport) {
             if (ts.isImportDeclaration(rootNode)) {
               this.#imports.push(
@@ -229,6 +225,10 @@ export class Emitter {
             }
 
             return;
+          }
+
+          if (ts.isImportDeclaration(rootNode)) {
+            this.collectAliases(rootNode);
           }
 
           const symbolAtLocation = this.#typeChecker.getSymbolAtLocation(rootNode.moduleSpecifier);

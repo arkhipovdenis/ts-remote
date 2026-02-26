@@ -481,3 +481,35 @@ class PrivateFieldsTest {
  */
 export { PrivateFieldsTest };
 }
+
+declare module "aliased-reexport" {
+import { type Buffer as Buf } from 'node:buffer';
+import { EventEmitter as Emitter } from 'node:events';
+/**
+ * Aliased import types: import { x as y }, export const a: y, export type b = typeof a
+ */
+interface OriginalConfig {
+    host: string;
+    port: number;
+}
+type OriginalStatus = 'active' | 'inactive';
+enum OriginalLevel {
+    Low = 0,
+    Medium = 1,
+    High = 2
+}
+const config: OriginalConfig;
+type ConfigType = typeof config;
+type AppStatus = OriginalStatus;
+const defaultLevel: OriginalLevel;
+type LevelType = typeof defaultLevel;
+function createConfig(host: string, port: number): OriginalConfig;
+function getConfigValue<K extends keyof OriginalConfig>(cfg: OriginalConfig, key: K): OriginalConfig[K];
+const configs: OriginalConfig[];
+const buf: Buf;
+type BufType = typeof buf;
+const emitter: Emitter;
+type EmitterType = typeof emitter;
+function createBuffer(size: number): Buf;
+export { config, ConfigType, AppStatus, defaultLevel, LevelType, createConfig, getConfigValue, configs, OriginalConfig as AliasedExportConfig, OriginalStatus as AliasedExportStatus, buf, BufType, emitter, EmitterType, createBuffer };
+}

@@ -31,6 +31,10 @@ async function main() {
         name: 'private-fields-test',
         filename: path.resolve(__dirname, 'src/private-fields-test.ts'),
       },
+      {
+        name: 'aliased-reexport',
+        filename: path.resolve(__dirname, 'src/aliased-reexport.ts'),
+      },
     ],
     output: {
       filename: path.resolve(__dirname, 'dist/comprehensive.d.ts'),
