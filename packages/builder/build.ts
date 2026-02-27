@@ -88,6 +88,7 @@ export default async function main(options: BuilderOptions) {
     program,
     rootFile: firstSourceFile,
     moduleResolutionCache,
+    entryFileNames: moduleByFilename,
   });
 
   const modulesContent: string[] = [];

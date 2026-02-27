@@ -6,6 +6,7 @@ type EmitterOptions = {
   program: ts.Program;
   compilerHost: ts.CompilerHost;
   moduleResolutionCache?: ts.ModuleResolutionCache;
+  entryFileNames?: Map<string, string>;
 };
 
 export class Emitter {
@@ -22,18 +23,20 @@ export class Emitter {
   #declarationParts: string[] = [];
   #imports: string[] = [];
   #exports: string[] = [];
+  #entryFileNames: Map<string, string>;
   // Name collision tracking
   #exportedNames = new Set<string>();
   #nameCollisions = new Map<ts.Node, string>(); // Maps internal nodes to their renamed versions
   #nameCounter = new Map<string, number>(); // Tracks collision counters for each name
 
-  constructor({ program, compilerHost, rootFile, moduleResolutionCache }: EmitterOptions) {
+  constructor({ program, compilerHost, rootFile, moduleResolutionCache, entryFileNames }: EmitterOptions) {
     this.#program = program;
     this.#printer = ts.createPrinter();
     this.#typeChecker = program.getTypeChecker();
     this.#compilerOptions = program.getCompilerOptions();
     this.#compilerHost = compilerHost;
     this.#rootFile = rootFile;
+    this.#entryFileNames = entryFileNames ?? new Map();
     this.#moduleResolutionCache =
       moduleResolutionCache ??
       ts.createModuleResolutionCache(
@@ -405,22 +408,48 @@ export class Emitter {
                   );
                 }
 
-                processNamedExportBindings(rootNode.exportClause);
+                const namedEntryModuleName = this.#entryFileNames.get(module.fileName);
+
+                if (namedEntryModuleName && ts.isNamedExports(rootNode.exportClause)) {
+                  // Target is an entry-file — emit `export { ... } from "moduleName"`
+                  const printedExport = this.#printer.printNode(
+                    ts.EmitHint.Unspecified,
+                    context.factory.createExportDeclaration(
+                      undefined,
+                      rootNode.isTypeOnly,
+                      rootNode.exportClause,
+                      context.factory.createStringLiteral(namedEntryModuleName),
+                    ),
+                    sourceFile,
+                  );
+                  this.#exports.push(printedExport);
+                } else {
+                  processNamedExportBindings(rootNode.exportClause);
+                }
               } else {
-                const symbol = this.#typeChecker.getSymbolAtLocation(module);
+                const entryModuleName = this.#entryFileNames.get(module.fileName);
 
-                if (symbol) {
-                  const exportsOfModule = this.#typeChecker.getExportsOfModule(symbol);
+                if (entryModuleName) {
+                  // Target is an entry-file — emit `export * from "moduleName"`
+                  this.#exports.push(
+                    `export * from "${entryModuleName}";`,
+                  );
+                } else {
+                  const symbol = this.#typeChecker.getSymbolAtLocation(module);
 
-                  for (const exportSymbol of exportsOfModule) {
-                    if (!hasSpecifier(exportSymbol.name)) {
-                      addSpecifier(
-                        context.factory.createExportSpecifier(
-                          rootNode.isTypeOnly,
-                          undefined,
-                          exportSymbol.name,
-                        ),
-                      );
+                  if (symbol) {
+                    const exportsOfModule = this.#typeChecker.getExportsOfModule(symbol);
+
+                    for (const exportSymbol of exportsOfModule) {
+                      if (!hasSpecifier(exportSymbol.name)) {
+                        addSpecifier(
+                          context.factory.createExportSpecifier(
+                            rootNode.isTypeOnly,
+                            undefined,
+                            exportSymbol.name,
+                          ),
+                        );
+                      }
                     }
                   }
                 }
@@ -618,19 +647,25 @@ export class Emitter {
 
       if (ts.canHaveModifiers(rootNode) && rootNode.modifiers) {
         let hasExport = false;
+        let hasDefault = false;
 
         rootNode = context.factory.replaceModifiers(
           rootNode,
           context.factory.createNodeArray(
             rootNode.modifiers.filter((modifier) => {
               const isExport = modifier.kind === ts.SyntaxKind.ExportKeyword;
+              const isDefault = modifier.kind === ts.SyntaxKind.DefaultKeyword;
 
               if (isExport) {
                 hasExport = true;
               }
 
-              // remove export keyword
-              return !isExport;
+              if (isDefault) {
+                hasDefault = true;
+              }
+
+              // remove export and default keywords
+              return !isExport && !isDefault;
             }) as ts.Modifier[],
           ),
         );
@@ -641,23 +676,34 @@ export class Emitter {
             : rootNode;
 
           if (isRootFile && canHaveName(_node)) {
-            const symbol = this.#typeChecker.getSymbolAtLocation(_node.name);
-
-            if (symbol) {
-              const aliasedSymbol =
-                symbol.flags & ts.SymbolFlags.Alias
-                  ? this.#typeChecker.getAliasedSymbol(symbol)
-                  : symbol;
-
-              const isDifferentName = symbol.name !== aliasedSymbol?.name;
-
+            if (hasDefault) {
+              // export default class/function — emit `export default ClassName;`
               addSpecifier(
                 context.factory.createExportSpecifier(
                   false,
-                  isDifferentName ? aliasedSymbol?.name : undefined,
-                  aliasedSymbol.name,
+                  _node.name.text,
+                  'default',
                 ),
               );
+            } else {
+              const symbol = this.#typeChecker.getSymbolAtLocation(_node.name);
+
+              if (symbol) {
+                const aliasedSymbol =
+                  symbol.flags & ts.SymbolFlags.Alias
+                    ? this.#typeChecker.getAliasedSymbol(symbol)
+                    : symbol;
+
+                const isDifferentName = symbol.name !== aliasedSymbol?.name;
+
+                addSpecifier(
+                  context.factory.createExportSpecifier(
+                    false,
+                    isDifferentName ? aliasedSymbol?.name : undefined,
+                    aliasedSymbol.name,
+                  ),
+                );
+              }
             }
           }
         }

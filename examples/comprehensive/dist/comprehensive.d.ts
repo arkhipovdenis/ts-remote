@@ -439,7 +439,11 @@ enum ExportedEnum {
     A = 0,
     B = 1
 }
-export { ModifiersDemo, ReadonlyInterface, ReadonlyClass, OptionalInterface, OptionalClass, AbstractModifiersDemo, ConcreteModifiersDemo, asyncFunction, asyncFunctionWithAwait, AsyncMethods, StaticDemo, CombinedModifiers, Base, Derived, AccessorDemo, ParameterPropertyModifiers, exportedConst, exportedFunction, ExportedClass, ExportedInterface, ExportedType, ExportedEnum, default, ModifiersDemo as RenamedExport, SimpleInterface, InterfaceWithOptional, InterfaceWithReadonly, InterfaceWithMethods, InterfaceWithCallSignature, InterfaceWithConstructSignature, InterfaceWithIndexSignature, InterfaceWithNumericIndexSignature, ExtendedInterface, MultipleExtends, StringAlias, NumberAlias, BooleanAlias, UnionType, IntersectionType, ObjectType, FunctionType, ArrayType, TupleType, LiteralType, NumericLiteralType, NullableType, UndefinableType, NullishType, NumericEnum, NumericEnumWithValues, StringEnum, MixedEnum, ConstEnum, ComputedEnum, MyNamespace, myObject, TypeOfObject, KeysOfSimpleInterface, NameType, NonNullable, ExtractStrings };
+class DefaultExport {
+    method(): string;
+}
+export { ModifiersDemo, ReadonlyInterface, ReadonlyClass, OptionalInterface, OptionalClass, AbstractModifiersDemo, ConcreteModifiersDemo, asyncFunction, asyncFunctionWithAwait, AsyncMethods, StaticDemo, CombinedModifiers, Base, Derived, AccessorDemo, ParameterPropertyModifiers, exportedConst, exportedFunction, ExportedClass, ExportedInterface, ExportedType, ExportedEnum, DefaultExport as default, ModifiersDemo as RenamedExport };
+export * from "types";
 }
 
 declare module "private-fields-test" {
