@@ -24,5 +24,15 @@ const program = ts.createProgram([ts.sys.resolvePath(`${cwd}/packages/builder/in
 program.emit();
 
 FILES_TO_COPY.forEach((fileName) => {
-  fs.cpSync(path.resolve(cwd, fileName), `${path.resolve(cwd, OUTPUT_PATH, fileName)}`);
+  if (fileName === 'package.json') {
+    const { scripts, devDependencies, ...pkg } = JSON.parse(
+      fs.readFileSync(path.resolve(cwd, fileName), 'utf-8'),
+    );
+    fs.writeFileSync(
+      path.resolve(cwd, OUTPUT_PATH, fileName),
+      JSON.stringify(pkg, null, 2) + '\n',
+    );
+  } else {
+    fs.cpSync(path.resolve(cwd, fileName), path.resolve(cwd, OUTPUT_PATH, fileName));
+  }
 });
