@@ -206,6 +206,35 @@ export class Emitter {
         return;
       }
 
+      if (
+        ts.isImportEqualsDeclaration(rootNode) &&
+        ts.isExternalModuleReference(rootNode.moduleReference)
+      ) {
+        const moduleName = this.getModuleNameFromSpecifier(rootNode.moduleReference.expression);
+        const resolvedModule = this.resolveModule(moduleName, sourceFile.fileName);
+
+        if (!resolvedModule || resolvedModule.isExternalLibraryImport) {
+          this.#imports.push(
+            this.#printer.printNode(ts.EmitHint.Unspecified, rootNode, sourceFile),
+          );
+          return;
+        }
+
+        this.#aliasImportMap.set(rootNode.name.text, moduleName);
+
+        const symbolAtLocation = this.#typeChecker.getSymbolAtLocation(
+          rootNode.moduleReference.expression,
+        );
+
+        if (symbolAtLocation?.declarations) {
+          const [declaration] = symbolAtLocation.declarations;
+          const module = declaration.getSourceFile();
+          this.emit(module);
+        }
+
+        return;
+      }
+
       if (ts.isImportDeclaration(rootNode) || ts.isExportDeclaration(rootNode)) {
         if (rootNode.moduleSpecifier) {
           const moduleName = this.getModuleNameFromSpecifier(rootNode.moduleSpecifier);

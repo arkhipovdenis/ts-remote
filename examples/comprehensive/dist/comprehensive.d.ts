@@ -513,3 +513,33 @@ type EmitterType = typeof emitter;
 function createBuffer(size: number): Buf;
 export { config, ConfigType, AppStatus, defaultLevel, LevelType, createConfig, getConfigValue, configs, OriginalConfig as AliasedExportConfig, OriginalStatus as AliasedExportStatus, buf, BufType, emitter, EmitterType, createBuffer };
 }
+
+declare module "cjs-patterns" {
+/**
+ * Test: CommonJS import patterns (import = require)
+ *
+ * Covers:
+ * 1. import = require with external module (preserved as-is)
+ * 2. import = require with internal module (inlined, qualified names resolved)
+ * 3. Usage via qualified names: X.Type
+ * 4. typeof with qualified names
+ */
+import events = require('node:events');
+/**
+ * Test: CommonJS import patterns (import = require)
+ *
+ * Covers:
+ * 1. import = require with external module (preserved as-is)
+ * 2. import = require with internal module (inlined, qualified names resolved)
+ * 3. Usage via qualified names: X.Type
+ * 4. typeof with qualified names
+ */
+const emitter: events.EventEmitter;
+type EmitterType = typeof emitter;
+const config: OriginalConfig;
+type ConfigType = typeof config;
+type AppStatus = OriginalStatus;
+function createConfig(host: string, port: number): OriginalConfig;
+function createEmitterWithConfig(cfg: OriginalConfig): events.EventEmitter;
+export { emitter, EmitterType, config, ConfigType, AppStatus, createConfig, createEmitterWithConfig };
+}

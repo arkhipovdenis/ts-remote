@@ -35,6 +35,10 @@ async function main() {
         name: 'aliased-reexport',
         filename: path.resolve(__dirname, 'src/aliased-reexport.ts'),
       },
+      {
+        name: 'cjs-patterns',
+        filename: path.resolve(__dirname, 'src/cjs-patterns.ts'),
+      },
     ],
     output: {
       filename: path.resolve(__dirname, 'dist/comprehensive.d.ts'),
