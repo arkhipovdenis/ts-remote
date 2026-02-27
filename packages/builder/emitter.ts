@@ -22,6 +22,10 @@ export class Emitter {
   #declarationParts: string[] = [];
   #imports: string[] = [];
   #exports: string[] = [];
+  // Name collision tracking
+  #exportedNames = new Set<string>();
+  #nameCollisions = new Map<ts.Node, string>(); // Maps internal nodes to their renamed versions
+  #nameCounter = new Map<string, number>(); // Tracks collision counters for each name
 
   constructor({ program, compilerHost, rootFile, moduleResolutionCache }: EmitterOptions) {
     this.#program = program;
@@ -41,12 +45,57 @@ export class Emitter {
 
   setRootFile(rootFile: ts.SourceFile): void {
     this.#rootFile = rootFile;
+    // Clear collision state when switching to a new root file
+    this.#exportedNames.clear();
+    this.#nameCollisions.clear();
+    this.#nameCounter.clear();
   }
 
   resetBuffers(): void {
     this.#declarationParts = [];
     this.#imports = [];
     this.#exports = [];
+    // Don't clear #exportedNames, #nameCollisions, #nameCounter here
+    // They should persist during the processing of a single module
+  }
+
+  /**
+   * Generate a unique name for a collision
+   */
+  private generateUniqueName(baseName: string): string {
+    const counter = this.#nameCounter.get(baseName) || 1;
+    this.#nameCounter.set(baseName, counter + 1);
+    return `${baseName}_${counter}`;
+  }
+
+  /**
+   * Check if a name is exported from the root file
+   */
+  private isExportedName(name: string): boolean {
+    return this.#exportedNames.has(name);
+  }
+
+  /**
+   * Register an exported name from the root file
+   */
+  private registerExportedName(name: string): void {
+    this.#exportedNames.add(name);
+  }
+
+  /**
+   * Get the renamed version of a node if it exists
+   */
+  private getRenamedNode(node: ts.Node): string | undefined {
+    return this.#nameCollisions.get(node);
+  }
+
+  /**
+   * Register a collision and return the new name
+   */
+  private registerCollision(node: ts.Node, originalName: string): string {
+    const newName = this.generateUniqueName(originalName);
+    this.#nameCollisions.set(node, newName);
+    return newName;
   }
 
   private resolveModule(moduleName: string, containingFile: string) {
@@ -142,6 +191,40 @@ export class Emitter {
   ): ts.Statement[] => {
     return statements.map((statement) => ts.visitNode(statement, visitor)) as ts.Statement[];
   };
+
+  /**
+   * First pass: collect all exported names from the root file
+   */
+  private collectExportedNames(sourceFile: ts.SourceFile): void {
+    const isRootFile = sourceFile.fileName === this.#rootFile.fileName;
+    if (!isRootFile) return;
+
+    const visit = (node: ts.Node): void => {
+      // Collect names from export declarations
+      if (ts.isExportDeclaration(node)) {
+        if (node.exportClause && ts.isNamedExports(node.exportClause)) {
+          for (const element of node.exportClause.elements) {
+            this.registerExportedName(element.name.text);
+          }
+        }
+      }
+
+      // Collect names from exported statements
+      if (ts.canHaveModifiers(node) && node.modifiers) {
+        const hasExport = node.modifiers.some(
+          (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword
+        );
+
+        if (hasExport && canHaveName(node)) {
+          this.registerExportedName(node.name.text);
+        }
+      }
+
+      ts.forEachChild(node, visit);
+    };
+
+    ts.forEachChild(sourceFile, visit);
+  }
 
   private transformFile(
     sourceFile: ts.SourceFile,
@@ -427,6 +510,83 @@ export class Emitter {
         }
       }
 
+      // Handle name collisions for declarations (type, interface, class, const, etc.)
+      if (
+        canHaveName(rootNode) &&
+        (ts.isTypeAliasDeclaration(rootNode) ||
+          ts.isInterfaceDeclaration(rootNode) ||
+          ts.isClassDeclaration(rootNode) ||
+          ts.isEnumDeclaration(rootNode) ||
+          ts.isVariableStatement(rootNode))
+      ) {
+        const nodeName = ts.isVariableStatement(rootNode)
+          ? (rootNode.declarationList.declarations[0] as any).name.text
+          : rootNode.name?.text;
+
+        if (nodeName && this.isExportedName(nodeName)) {
+          // Check if it's exported from this file
+          const isExportedFromThisFile =
+            ts.canHaveModifiers(rootNode) &&
+            rootNode.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+
+          if (!isExportedFromThisFile) {
+            // This is an internal declaration that collides with an exported name
+            const newName = this.registerCollision(rootNode, nodeName);
+
+            // Rename the node
+            if (ts.isTypeAliasDeclaration(rootNode)) {
+              rootNode = context.factory.updateTypeAliasDeclaration(
+                rootNode,
+                rootNode.modifiers,
+                context.factory.createIdentifier(newName),
+                rootNode.typeParameters,
+                rootNode.type,
+              );
+            } else if (ts.isInterfaceDeclaration(rootNode)) {
+              rootNode = context.factory.updateInterfaceDeclaration(
+                rootNode,
+                rootNode.modifiers,
+                context.factory.createIdentifier(newName),
+                rootNode.typeParameters,
+                rootNode.heritageClauses,
+                rootNode.members,
+              );
+            } else if (ts.isClassDeclaration(rootNode)) {
+              rootNode = context.factory.updateClassDeclaration(
+                rootNode,
+                rootNode.modifiers,
+                context.factory.createIdentifier(newName),
+                rootNode.typeParameters,
+                rootNode.heritageClauses,
+                (rootNode as ts.ClassDeclaration).members,
+              );
+            } else if (ts.isEnumDeclaration(rootNode)) {
+              rootNode = context.factory.updateEnumDeclaration(
+                rootNode,
+                rootNode.modifiers,
+                context.factory.createIdentifier(newName),
+                rootNode.members,
+              );
+            } else if (ts.isVariableStatement(rootNode)) {
+              const declaration = rootNode.declarationList.declarations[0];
+              rootNode = context.factory.updateVariableStatement(
+                rootNode,
+                rootNode.modifiers,
+                context.factory.updateVariableDeclarationList(rootNode.declarationList, [
+                  context.factory.updateVariableDeclaration(
+                    declaration,
+                    context.factory.createIdentifier(newName),
+                    declaration.exclamationToken,
+                    declaration.type,
+                    declaration.initializer,
+                  ),
+                ]),
+              );
+            }
+          }
+        }
+      }
+
       if (ts.canHaveModifiers(rootNode) && rootNode.modifiers) {
         let hasExport = false;
 
@@ -476,8 +636,23 @@ export class Emitter {
 
       if (ts.isTypeReferenceNode(rootNode) && ts.isIdentifier(rootNode.typeName)) {
         const alias = rootNode.typeName.text;
-        const originalName = this.#aliasImportMap.get(alias);
 
+        // First check for renamed nodes by symbol
+        const symbol = this.#typeChecker.getSymbolAtLocation(rootNode.typeName);
+        if (symbol?.declarations?.[0]) {
+          const declaration = symbol.declarations[0];
+          const renamedName = this.getRenamedNode(declaration);
+          if (renamedName) {
+            return context.factory.updateTypeReferenceNode(
+              rootNode,
+              context.factory.createIdentifier(renamedName),
+              rootNode.typeArguments,
+            );
+          }
+        }
+
+        // Then check for alias imports
+        const originalName = this.#aliasImportMap.get(alias);
         if (originalName) {
           return context.factory.updateTypeReferenceNode(
             rootNode,
@@ -489,8 +664,19 @@ export class Emitter {
 
       if (ts.isIdentifier(rootNode)) {
         const alias = rootNode.text;
-        const original = this.#aliasImportMap.get(alias);
 
+        // First check for renamed nodes by symbol
+        const symbol = this.#typeChecker.getSymbolAtLocation(rootNode);
+        if (symbol?.declarations?.[0]) {
+          const declaration = symbol.declarations[0];
+          const renamedName = this.getRenamedNode(declaration);
+          if (renamedName) {
+            return context.factory.createIdentifier(renamedName);
+          }
+        }
+
+        // Then check for alias imports
+        const original = this.#aliasImportMap.get(alias);
         if (original) {
           return context.factory.createIdentifier(original);
         }
@@ -543,6 +729,12 @@ export class Emitter {
   };
 
   emit(sourceFile: ts.SourceFile) {
+    // First pass: collect exported names from root file (do this once per root file)
+    // This happens on the first emit call after setRootFile
+    if (this.#exportedNames.size === 0) {
+      this.collectExportedNames(this.#rootFile);
+    }
+
     if (this.#emittedFiles.has(sourceFile.fileName)) {
       return;
     }

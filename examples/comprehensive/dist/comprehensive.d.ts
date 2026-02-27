@@ -139,10 +139,10 @@ enum ComputedEnum {
     D = 3
 }
 namespace MyNamespace {
-    interface NestedInterface {
+    interface NestedInterface_1 {
         value: string;
     }
-    class NestedClass {
+    class NestedClass_1 {
         value: number;
         constructor(value: number);
     }

@@ -18,6 +18,5 @@
     "declaration": true,
     "resolveJsonModule": true,
     "experimentalDecorators": true
-  },
-  "exclude": ["**/__test__/**"]
+  }
 }
