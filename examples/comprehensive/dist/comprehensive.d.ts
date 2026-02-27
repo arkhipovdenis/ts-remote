@@ -526,6 +526,21 @@ declare module "cjs-patterns" {
  */
 import events = require('node:events');
 /**
+ * Internal types used exclusively by cjs-standalone example
+ */
+interface ServerConfig {
+    hostname: string;
+    port: number;
+    ssl: boolean;
+}
+type ServerStatus = 'running' | 'stopped' | 'error';
+enum LogLevel {
+    Debug = 0,
+    Info = 1,
+    Warn = 2,
+    Error = 3
+}
+/**
  * Test: CommonJS import patterns (import = require)
  *
  * Covers:
@@ -536,10 +551,11 @@ import events = require('node:events');
  */
 const emitter: events.EventEmitter;
 type EmitterType = typeof emitter;
-const config: OriginalConfig;
+const config: ServerConfig;
 type ConfigType = typeof config;
-type AppStatus = OriginalStatus;
-function createConfig(host: string, port: number): OriginalConfig;
-function createEmitterWithConfig(cfg: OriginalConfig): events.EventEmitter;
-export { emitter, EmitterType, config, ConfigType, AppStatus, createConfig, createEmitterWithConfig };
+type CjsServerStatus = ServerStatus;
+const logLevel: LogLevel;
+function createServer(hostname: string, port: number): ServerConfig;
+function createEmitterWithConfig(cfg: ServerConfig): events.EventEmitter;
+export { emitter, EmitterType, config, ConfigType, CjsServerStatus, logLevel, createServer, createEmitterWithConfig };
 }
