@@ -558,3 +558,72 @@ type Application = {
 };
 export { User, Order, Payment, Status, Response, Application };
 }
+
+declare module "namespace-test" {
+/**
+ * Utility module with types to be imported as namespace
+ */
+type Status = "loading" | "ready" | "error";
+type Config = {
+    timeout: number;
+    retries: number;
+};
+/**
+ * Internal module with types that will collide
+ */
+type Status_1 = "active" | "inactive";
+type Config_1 = {
+    enabled: boolean;
+};
+class InternalService {
+    status: Status_1;
+    config: Config_1;
+    constructor();
+}
+class NamespaceService {
+    status: Status;
+    config: Config;
+    constructor();
+}
+export { NamespaceService, InternalService, Utils, Status, Config };
+namespace Utils {
+    /**
+     * Test import * as namespace with collision resolution
+     */
+    type Status = "loading" | "ready" | "error";
+    type Config = {
+        timeout: number;
+        retries: number;
+    };
+    function createStatus(): Status;
+    function createConfig(): Config;
+}
+}
+
+declare module "namespace-export-test" {
+/**
+ * Internal module for namespace export test
+ */
+type Status_1 = "active" | "inactive";
+class Service {
+    status: Status_1;
+    constructor();
+}
+namespace Utils {
+    /**
+     * Test export * as namespace syntax with collision resolution
+     */
+    type Status = "loading" | "ready" | "error";
+    type Config = {
+        timeout: number;
+        retries: number;
+    };
+    function createStatus(): Status;
+    function createConfig(): Config;
+}
+type Status = "success" | "failure";
+type Config = {
+    apiKey: string;
+};
+export { Service, Utils, Status, Config };
+}

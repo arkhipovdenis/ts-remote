@@ -236,6 +236,7 @@ export class Emitter {
 
     const exportsSpecifiers: ts.ExportSpecifier[] = [];
     const seenSpecifiers = new Set<string>();
+    const namespaceExports: Array<{ name: string; sourceFile: ts.SourceFile }> = [];
 
     const hasSpecifier = (name: string) => seenSpecifiers.has(name);
 
@@ -244,7 +245,10 @@ export class Emitter {
       exportsSpecifiers.push(specifier);
     };
 
-    const processNamedExportBindings = (exportClause: ts.NamedExportBindings) => {
+    const processNamedExportBindings = (
+      exportClause: ts.NamedExportBindings,
+      sourceFileContext?: ts.SourceFile,
+    ) => {
       exportClause.forEachChild((node) => {
         if (ts.isExportSpecifier(node) && !hasSpecifier(node.name.text)) {
           const symbolAtLocation = this.#typeChecker.getSymbolAtLocation(node.name);
@@ -253,18 +257,43 @@ export class Emitter {
             const aliasedSymbol = this.#typeChecker.getAliasedSymbol(symbolAtLocation);
 
             if (aliasedSymbol) {
-              const isDifferentName = node.name.text !== aliasedSymbol.name;
+              // Check if this is a namespace import (import * as Name)
+              // by checking if the aliased symbol is a module/namespace
+              const isNamespaceImport =
+                (aliasedSymbol.flags & ts.SymbolFlags.ValueModule) !== 0 ||
+                (aliasedSymbol.flags & ts.SymbolFlags.NamespaceModule) !== 0;
 
-              if (isDifferentName) {
+              if (isNamespaceImport && aliasedSymbol.declarations?.[0]) {
+                // This is a re-export of a namespace import: export { Utils } where Utils is from import * as Utils
+                // We need to create a namespace declaration instead of a simple export specifier
+                const namespaceDeclaration = aliasedSymbol.declarations[0];
+                const namespaceSourceFile = namespaceDeclaration.getSourceFile();
+
+                // Add export specifier for the namespace name
                 addSpecifier(
-                  context.factory.createExportSpecifier(
-                    node.isTypeOnly,
-                    aliasedSymbol.name,
-                    node.name.text,
-                  ),
+                  context.factory.createExportSpecifier(node.isTypeOnly, undefined, node.name.text),
                 );
+
+                // Store namespace generation info to be processed later
+                // We'll handle this similar to export * as Namespace
+                namespaceExports.push({
+                  name: node.name.text,
+                  sourceFile: namespaceSourceFile,
+                });
               } else {
-                addSpecifier(node);
+                const isDifferentName = node.name.text !== aliasedSymbol.name;
+
+                if (isDifferentName) {
+                  addSpecifier(
+                    context.factory.createExportSpecifier(
+                      node.isTypeOnly,
+                      aliasedSymbol.name,
+                      node.name.text,
+                    ),
+                  );
+                } else {
+                  addSpecifier(node);
+                }
               }
             }
           }
@@ -713,6 +742,28 @@ export class Emitter {
       this.#exports.unshift(
         this.#printer.printNode(ts.EmitHint.Unspecified, exportDeclaration, visitedFile),
       );
+    }
+
+    // Process namespace exports (from export { Utils } where Utils is import * as Utils)
+    if (isRootFile && namespaceExports.length > 0) {
+      for (const { name, sourceFile: nsSourceFile } of namespaceExports) {
+        // Emit the namespace source file to ensure all types are processed
+        this.emit(nsSourceFile);
+
+        // Create namespace declaration similar to export * as Namespace
+        const namespaceDeclaration = context.factory.createModuleDeclaration(
+          undefined,
+          context.factory.createIdentifier(name),
+          context.factory.createModuleBlock(
+            this.updateStatements(nsSourceFile.statements, statementVisitor),
+          ),
+          ts.NodeFlags.Namespace,
+        );
+
+        this.#exports.push(
+          this.#printer.printNode(ts.EmitHint.Unspecified, namespaceDeclaration, visitedFile),
+        );
+      }
     }
 
     return visitedFile;

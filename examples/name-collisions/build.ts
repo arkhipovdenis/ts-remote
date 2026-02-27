@@ -31,6 +31,14 @@ async function main() {
         name: 'multiple-sources',
         filename: path.resolve(__dirname, 'src/multiple-sources-main.ts'),
       },
+      {
+        name: 'namespace-test',
+        filename: path.resolve(__dirname, 'src/namespace-test.ts'),
+      },
+      {
+        name: 'namespace-export-test',
+        filename: path.resolve(__dirname, 'src/namespace-export-test.ts'),
+      },
     ],
     output: {
       filename: path.resolve(__dirname, 'dist/collisions.d.ts'),
