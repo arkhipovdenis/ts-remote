@@ -20,7 +20,6 @@
     "prettier:fix": "prettier ./packages/**/*.ts --write",
     "prettier:check": "prettier ./packages/**/*.ts --check",
     "typecheck": "tsc --noEmit",
-    "prebuild": "npm run typecheck",
     "build": "ts-node --transpileOnly ./scripts/build.ts",
     "test": "node --test --require ts-node/register/transpile-only 'packages/**/__test__/*.test.ts'",
     "test:coverage": "node --test --experimental-test-coverage --require ts-node/register/transpile-only 'packages/**/__test__/*.test.ts'",
