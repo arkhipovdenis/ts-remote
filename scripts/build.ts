@@ -42,7 +42,7 @@ if (fs.existsSync(cliBinPath)) {
 
 FILES_TO_COPY.forEach((fileName) => {
   if (fileName === 'package.json') {
-    const { scripts, devDependencies, ...pkg } = JSON.parse(
+    const { scripts, devDependencies, 'lint-staged': _lintStaged, ...pkg } = JSON.parse(
       fs.readFileSync(path.resolve(cwd, fileName), 'utf-8'),
     );
     fs.writeFileSync(
