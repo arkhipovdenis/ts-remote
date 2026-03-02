@@ -28,6 +28,9 @@ Thanks for your interest in contributing to ts-remote! This document describes t
 ```
 packages/
   builder/    # Core builder — build function, emitter, public API
+  fetcher/    # HTTP fetcher + disk cache for remote .d.ts files
+  plugin/     # TypeScript Language Service Plugin
+  cli/        # CLI (ts-remote fetch)
   shared/     # Shared utilities — errors, logger
 examples/     # Usage examples
 scripts/      # Build scripts
@@ -37,9 +40,10 @@ scripts/      # Build scripts
 
 | Command | Description |
 |---------|-------------|
+| `pnpm run test` | Run all tests |
+| `pnpm run test:coverage` | Run tests with coverage report |
 | `pnpm run typecheck` | Type-check without emitting |
 | `pnpm run build` | Build the project (runs typecheck first) |
-| `pnpm run test:compile` | Run compilation tests |
 | `pnpm run prettier:check` | Check code formatting |
 | `pnpm run prettier:fix` | Auto-fix code formatting |
 
@@ -52,9 +56,9 @@ scripts/      # Build scripts
 2. Make your changes
 3. Ensure everything passes:
    ```bash
-   pnpm run typecheck
    pnpm run prettier:check
-   pnpm run test:compile
+   pnpm run typecheck
+   pnpm run test
    ```
 4. Commit your changes following [Conventional Commits](https://www.conventionalcommits.org/):
    - `feat:` — new feature
@@ -73,7 +77,7 @@ scripts/      # Build scripts
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/TheMontanyes/ts-remote/issues) to report bugs or request features
+- Use [GitHub Issues](https://github.com/arkhipovdenis/ts-remote/issues) to report bugs or request features
 - Include a minimal reproduction when reporting bugs
 - Describe expected vs actual behavior
 

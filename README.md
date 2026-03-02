@@ -42,6 +42,7 @@ await build({
 
 ```typescript
 import build, { DeclarationVariant } from 'ts-remote/builder';
+import prettier from 'prettier';
 
 await build({
   entries: [
@@ -57,11 +58,8 @@ await build({
   ],
   output: {
     filename: './dist/types.d.ts',
-    format: (result) => {
-      // Optional: format output with Prettier or other formatter
-      const prettier = require('prettier');
-      return prettier.format(result, { parser: 'typescript' });
-    },
+    // Optional: format output with Prettier or other formatter
+    format: (result) => prettier.format(result, { parser: 'typescript' }),
   },
   tsconfig: './tsconfig.json', // Optional: custom tsconfig path
   additionalDeclarations: ['./src/global.d.ts'], // Optional: global declarations
@@ -100,7 +98,7 @@ Builds TypeScript declaration files from source files.
 |----------|------|----------|---------|-------------|
 | `entries` | `DeclarationEntry[]` | ✅ Yes | - | Array of module declarations to compile |
 | `output.filename` | `string` | No | `@types/types.d.ts` | Output file path |
-| `output.format` | `(result: string) => string` | No | `(x) => x` | Function to format the output |
+| `output.format` | `(result: string) => string \| Promise<string>` | No | `(x) => x` | Function to format the output |
 | `tsconfig` | `string` | No | `tsconfig.json` | Path to tsconfig.json |
 | `additionalDeclarations` | `string[]` | No | `[]` | Additional .d.ts files to include |
 
@@ -220,7 +218,7 @@ await build({
 ## Requirements
 
 - TypeScript >= 4.9
-- Node.js >= 14
+- Node.js >= 18
 
 ## Contributing
 

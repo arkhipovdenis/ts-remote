@@ -123,7 +123,7 @@ async function generateTypes() {
   await build({ ... });
 }
 
-// Option 2: Top-level await (Node 14.8+)
+// Option 2: Top-level await
 await build({ ... });
 
 // Option 3: Promise chain
@@ -153,15 +153,13 @@ await build({
 ### 2. Custom Output Formatting
 
 ```typescript
+import prettier from 'prettier';
+
 await build({
   entries: [...],
   output: {
     filename: './dist/types.d.ts',
-    format: (result) => {
-      // Format with Prettier
-      const prettier = require('prettier');
-      return prettier.format(result, { parser: 'typescript' });
-    },
+    format: (result) => prettier.format(result, { parser: 'typescript' }),
   },
 });
 ```
@@ -189,7 +187,7 @@ The `loader` package has been removed from ts-remote v2.0. If you were using it:
 import { loader } from 'ts-remote/loader';
 ```
 
-**Alternative**: Use standard HTTP fetch or file system operations to load the generated `.d.ts` files.
+**Alternative**: Use the new `ts-remote/fetcher` package or the `ts-remote fetch` CLI command to download remote `.d.ts` files. Configure the TypeScript Language Service Plugin (`ts-remote/plugin`) for automatic module resolution in your IDE.
 
 ## Performance Improvements
 

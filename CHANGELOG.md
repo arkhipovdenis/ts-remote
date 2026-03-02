@@ -14,8 +14,12 @@ Version 2.0 is a complete architectural redesign focused on performance, tree-sh
 ### ✨ Added
 
 - **New Builder Architecture**: Complete rewrite with optimized AST processing
+- **Fetcher Package**: HTTP client with disk cache, TTL-based invalidation, retry logic (`ts-remote/fetcher`)
+- **Plugin Package**: TypeScript Language Service Plugin that patches module resolution for remote types (`ts-remote/plugin`)
+- **CLI**: `ts-remote fetch` command for downloading remote `.d.ts` files with `--force`, `--config`, `--cache-dir` flags
 - **Tree-Shaking Support**: Efficient module bundling with dead code elimination
 - **Namespace Variant**: Support for `declare namespace` declarations via `DeclarationVariant.Namespace`
+- **Async Format Support**: `output.format` now accepts `(result: string) => string | Promise<string>`
 - **Improved TypeScript Coverage**: Support for more TypeScript constructs:
   - Conditional types
   - Mapped types
@@ -43,7 +47,7 @@ Version 2.0 is a complete architectural redesign focused on performance, tree-sh
 
 ### 🗑️ Removed
 
-- **BREAKING**: Removed `loader` package (will be released as separate package)
+- **BREAKING**: Removed `loader` package (replaced by `ts-remote/fetcher` and `ts-remote/plugin`)
 - **BREAKING**: Removed `packages/compiler` (replaced by `packages/builder`)
 
 ### 📚 Documentation

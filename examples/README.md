@@ -46,16 +46,26 @@ Test suite covering all possible TypeScript constructs and SyntaxKind nodes.
 ts-node examples/comprehensive/build.ts
 ```
 
+### [name-collisions/](./name-collisions/)
+**Automatic name collision resolution**
+
+Demonstrates how ts-remote handles duplicate type names from different source files.
+
+- Automatic renaming of internal types
+- Reference updates across modules
+
+```bash
+ts-node examples/name-collisions/build.ts
+```
+
 ## Running All Examples
 
 ```bash
 # From project root
-npm run build
-
-# Run all examples
 ts-node examples/basic/build.ts
 ts-node examples/namespace/build.ts
 ts-node examples/comprehensive/build.ts
+ts-node examples/name-collisions/build.ts
 ```
 
 ## Creating Your Own
@@ -73,7 +83,7 @@ import build from 'ts-remote/builder';
 
 await build({
   entries: [
-    ['my-module', { filename: './src/index.ts' }],
+    { name: 'my-module', filename: './src/index.ts' },
   ],
   output: {
     filename: './dist/types.d.ts',
@@ -93,9 +103,9 @@ ts-node build.ts
 ```typescript
 await build({
   entries: [
-    ['@app/core', { filename: './packages/core/src/index.ts' }],
-    ['@app/auth', { filename: './packages/auth/src/index.ts' }],
-    ['@app/ui', { filename: './packages/ui/src/index.ts' }],
+    { name: '@app/core', filename: './packages/core/src/index.ts' },
+    { name: '@app/auth', filename: './packages/auth/src/index.ts' },
+    { name: '@app/ui', filename: './packages/ui/src/index.ts' },
   ],
   output: {
     filename: './dist/federated-types.d.ts',
@@ -110,7 +120,7 @@ import build from 'ts-remote/builder';
 import prettier from 'prettier';
 
 await build({
-  entries: [['my-app', { filename: './src/index.ts' }]],
+  entries: [{ name: 'my-app', filename: './src/index.ts' }],
   output: {
     filename: './dist/types.d.ts',
     format: (result) => prettier.format(result, { parser: 'typescript' }),
@@ -122,7 +132,7 @@ await build({
 
 ```typescript
 await build({
-  entries: [['my-app', { filename: './src/index.ts' }]],
+  entries: [{ name: 'my-app', filename: './src/index.ts' }],
   tsconfig: './tsconfig.build.json',
   output: {
     filename: './dist/types.d.ts',
