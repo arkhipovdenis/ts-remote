@@ -26,7 +26,8 @@
     "test:cli": "ts-node --transpileOnly packages/cli/__test__/parse-args.test.ts && ts-node --transpileOnly packages/cli/__test__/fetch-command.test.ts",
     "test:fetcher": "ts-node --transpileOnly packages/fetcher/__test__/config.test.ts && ts-node --transpileOnly packages/fetcher/__test__/cache.test.ts && ts-node --transpileOnly packages/fetcher/__test__/http.test.ts && ts-node --transpileOnly packages/fetcher/__test__/fetch.test.ts",
     "test:plugin": "ts-node --transpileOnly packages/plugin/__test__/plugin.test.ts",
-    "test": "npm run test:cli && npm run test:fetcher && npm run test:plugin"
+    "test": "npm run test:cli && npm run test:fetcher && npm run test:plugin",
+    "prepare": "husky"
   },
   "exports": {
     "./builder": {
@@ -59,8 +60,13 @@
   "peerDependencies": {
     "typescript": ">=4.9"
   },
+  "lint-staged": {
+    "packages/**/*.ts": "prettier --write"
+  },
   "devDependencies": {
     "@types/node": "^20.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.1",
     "prettier": "^2.8.8",
     "ts-node": "^10.9.2",
     "typescript": "5.9.3"
