@@ -23,7 +23,8 @@ export function removeDeclareInAmbientContext(code: string): string {
 
     // Check if line declares a TOP-LEVEL ambient context (module or namespace)
     // Only top-level (depth 0) declare module/namespace should keep 'declare'
-    const isTopLevelAmbient = insideAmbientContext === 0 && /^\s*declare\s+(module|namespace)/.test(line);
+    const isTopLevelAmbient =
+      insideAmbientContext === 0 && /^\s*declare\s+(module|namespace)/.test(line);
 
     if (isTopLevelAmbient) {
       // This is a top-level ambient declaration - keep 'declare'

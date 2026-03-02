@@ -17,13 +17,14 @@
     "ts-remote": "./cli/index.js"
   },
   "scripts": {
-    "prettier:fix": "prettier ./packages/**/*.ts -l --write",
-    "prettier:check": "prettier ./packages/**/*.ts -l --check",
+    "prettier:fix": "prettier ./packages/**/*.ts --write",
+    "prettier:check": "prettier ./packages/**/*.ts --check",
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run typecheck",
     "build": "ts-node --transpileOnly ./scripts/build.ts",
     "test": "node --test --require ts-node/register/transpile-only 'packages/**/__test__/*.test.ts'",
     "test:coverage": "node --test --experimental-test-coverage --require ts-node/register/transpile-only 'packages/**/__test__/*.test.ts'",
+    "test:ci": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info --require ts-node/register/transpile-only 'packages/**/__test__/*.test.ts'",
     "prepare": "husky"
   },
   "exports": {

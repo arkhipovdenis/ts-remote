@@ -29,7 +29,13 @@ export class Emitter {
   #nameCollisions = new Map<ts.Node, string>(); // Maps internal nodes to their renamed versions
   #nameCounter = new Map<string, number>(); // Tracks collision counters for each name
 
-  constructor({ program, compilerHost, rootFile, moduleResolutionCache, entryFileNames }: EmitterOptions) {
+  constructor({
+    program,
+    compilerHost,
+    rootFile,
+    moduleResolutionCache,
+    entryFileNames,
+  }: EmitterOptions) {
     this.#program = program;
     this.#printer = ts.createPrinter();
     this.#typeChecker = program.getTypeChecker();
@@ -215,7 +221,7 @@ export class Emitter {
       // Collect names from exported statements
       if (ts.canHaveModifiers(node) && node.modifiers) {
         const hasExport = node.modifiers.some(
-          (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword
+          (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
         );
 
         if (hasExport && canHaveName(node)) {
@@ -431,9 +437,7 @@ export class Emitter {
 
                 if (entryModuleName) {
                   // Target is an entry-file — emit `export * from "moduleName"`
-                  this.#exports.push(
-                    `export * from "${entryModuleName}";`,
-                  );
+                  this.#exports.push(`export * from "${entryModuleName}";`);
                 } else {
                   const symbol = this.#typeChecker.getSymbolAtLocation(module);
 
@@ -507,7 +511,10 @@ export class Emitter {
 
       if (ts.isImportTypeNode(rootNode)) {
         let importPath: string;
-        if (ts.isLiteralTypeNode(rootNode.argument) && ts.isStringLiteral(rootNode.argument.literal)) {
+        if (
+          ts.isLiteralTypeNode(rootNode.argument) &&
+          ts.isStringLiteral(rootNode.argument.literal)
+        ) {
           importPath = rootNode.argument.literal.text;
         } else {
           importPath = rootNode.argument.getText().replace(/['"]/g, '');
@@ -679,11 +686,7 @@ export class Emitter {
             if (hasDefault) {
               // export default class/function — emit `export default ClassName;`
               addSpecifier(
-                context.factory.createExportSpecifier(
-                  false,
-                  _node.name.text,
-                  'default',
-                ),
+                context.factory.createExportSpecifier(false, _node.name.text, 'default'),
               );
             } else {
               const symbol = this.#typeChecker.getSymbolAtLocation(_node.name);

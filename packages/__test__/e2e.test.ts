@@ -80,7 +80,10 @@ export enum Role {
     assert.ok(fs.existsSync(outputPath), 'Builder should create output .d.ts');
 
     const dtsContent = fs.readFileSync(outputPath, 'utf-8');
-    assert.ok(dtsContent.includes('declare module "test-app"'), 'Output should contain declare module');
+    assert.ok(
+      dtsContent.includes('declare module "test-app"'),
+      'Output should contain declare module',
+    );
     assert.ok(dtsContent.includes('User'), 'Output should contain User interface');
     assert.ok(dtsContent.includes('getUser'), 'Output should contain getUser function');
     assert.ok(dtsContent.includes('Role'), 'Output should contain Role enum');
