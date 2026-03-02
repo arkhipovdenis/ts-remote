@@ -129,7 +129,7 @@ export default async function main(options: BuilderOptions) {
   const finalCode = modulesContent.join(ts.sys.newLine);
   const cleanedCode = removeDeclareInAmbientContext(finalCode);
 
-  ts.sys.writeFile(outputPath, outputFormat(cleanedCode), true);
+  ts.sys.writeFile(outputPath, await outputFormat(cleanedCode), true);
 
   console.timeEnd('DTS build');
 }

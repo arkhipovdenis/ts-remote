@@ -9,8 +9,13 @@
     "builder",
     "microfrontend",
     "types",
-    "type-sharing"
+    "type-sharing",
+    "remote-types",
+    "language-service-plugin"
   ],
+  "bin": {
+    "ts-remote": "./cli/index.js"
+  },
   "scripts": {
     "prettier:fix": "prettier ./packages/**/*.ts -l --write",
     "prettier:check": "prettier ./packages/**/*.ts -l --check",
@@ -24,6 +29,16 @@
       "types": "./builder/index.d.ts",
       "require": "./builder/index.js",
       "default": "./builder/index.js"
+    },
+    "./fetcher": {
+      "types": "./fetcher/index.d.ts",
+      "require": "./fetcher/index.js",
+      "default": "./fetcher/index.js"
+    },
+    "./plugin": {
+      "types": "./plugin/index.d.ts",
+      "require": "./plugin/index.js",
+      "default": "./plugin/index.js"
     },
     "./package.json": "./package.json"
   },

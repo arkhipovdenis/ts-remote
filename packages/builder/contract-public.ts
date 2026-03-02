@@ -62,7 +62,7 @@ export type BuilderOptions = {
     /**
      * A method for processing the contents of a compiled file
      * */
-    format?: (result: string) => string;
+    format?: (result: string) => string | Promise<string>;
   };
   /**
    * The path to tsconfig

@@ -6,3 +6,4 @@ export {
   EmitFailedError,
   SourceFileNotFoundError,
 } from './builder-error';
+export { FetcherError, FetchError, CacheError, ConfigError, TimeoutError } from './fetcher-error';
