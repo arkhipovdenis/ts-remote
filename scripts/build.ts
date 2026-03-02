@@ -42,13 +42,23 @@ if (fs.existsSync(cliBinPath)) {
 
 FILES_TO_COPY.forEach((fileName) => {
   if (fileName === 'package.json') {
-    const { scripts, devDependencies, 'lint-staged': _lintStaged, ...pkg } = JSON.parse(
-      fs.readFileSync(path.resolve(cwd, fileName), 'utf-8'),
-    );
-    fs.writeFileSync(
-      path.resolve(cwd, OUTPUT_PATH, fileName),
-      JSON.stringify(pkg, null, 2) + '\n',
-    );
+    const {
+      scripts,
+      devDependencies,
+      'lint-staged': _lintStaged,
+      ...pkg
+    } = JSON.parse(fs.readFileSync(path.resolve(cwd, fileName), 'utf-8'));
+
+    if (pkg.bin) {
+      for (const key of Object.keys(pkg.bin)) {
+        const val = pkg.bin[key];
+        if (!val.startsWith('./')) {
+          pkg.bin[key] = './' + val;
+        }
+      }
+    }
+
+    fs.writeFileSync(path.resolve(cwd, OUTPUT_PATH, fileName), JSON.stringify(pkg, null, 2) + '\n');
   } else {
     fs.cpSync(path.resolve(cwd, fileName), path.resolve(cwd, OUTPUT_PATH, fileName));
   }
