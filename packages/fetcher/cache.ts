@@ -55,8 +55,8 @@ export class CacheManager {
       return null;
     }
 
-    // Check TTL
-    if (ttl > 0 && Date.now() - entry.fetchedAt > ttl) {
+    // Check TTL (0 means always re-fetch)
+    if (ttl === 0 || Date.now() - entry.fetchedAt > ttl) {
       this.#logger.debug(`Cache expired for "${name}"`);
       return null;
     }

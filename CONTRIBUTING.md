@@ -43,18 +43,6 @@ scripts/      # Build scripts
 | `pnpm run prettier:check` | Check code formatting |
 | `pnpm run prettier:fix` | Auto-fix code formatting |
 
-### Code Style
-
-The project uses [Prettier](https://prettier.io/) for formatting. Key settings:
-
-- Single quotes
-- 2-space indentation
-- 100 character line width
-- Trailing commas
-- Semicolons
-
-Run `pnpm run prettier:fix` before committing.
-
 ## Making Changes
 
 1. Create a branch from `main`:

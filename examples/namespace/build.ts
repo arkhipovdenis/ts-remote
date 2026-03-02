@@ -4,6 +4,7 @@
 import build from '../../packages/builder/build';
 import { DeclarationVariant } from '../../packages/builder/contract-public';
 import path from 'path';
+import prettier from 'prettier';
 
 async function main() {
   await build({
@@ -16,6 +17,7 @@ async function main() {
     ],
     output: {
       filename: path.resolve(__dirname, 'dist/library.d.ts'),
+      format: (result) => prettier.format(result, { parser: 'typescript' }),
     },
     tsconfig: path.resolve(__dirname, '../../tsconfig.json'),
   });

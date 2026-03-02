@@ -22,7 +22,11 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run typecheck",
     "build": "ts-node --transpileOnly ./scripts/build.ts",
-    "test:compile": "ts-node --transpileOnly packages/builder/__test__/builder.test.ts"
+    "test:compile": "ts-node --transpileOnly packages/builder/__test__/builder.test.ts",
+    "test:cli": "ts-node --transpileOnly packages/cli/__test__/parse-args.test.ts && ts-node --transpileOnly packages/cli/__test__/fetch-command.test.ts",
+    "test:fetcher": "ts-node --transpileOnly packages/fetcher/__test__/config.test.ts && ts-node --transpileOnly packages/fetcher/__test__/cache.test.ts && ts-node --transpileOnly packages/fetcher/__test__/http.test.ts && ts-node --transpileOnly packages/fetcher/__test__/fetch.test.ts",
+    "test:plugin": "ts-node --transpileOnly packages/plugin/__test__/plugin.test.ts",
+    "test": "npm run test:cli && npm run test:fetcher && npm run test:plugin"
   },
   "exports": {
     "./builder": {

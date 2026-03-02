@@ -8,7 +8,7 @@ type ParsedArgs = {
   flags: Record<string, string | boolean>;
 };
 
-function parseArgs(argv: string[]): ParsedArgs {
+export function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   const command = args[0] ?? 'help';
   const flags: Record<string, string | boolean> = {};
