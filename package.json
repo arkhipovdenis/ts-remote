@@ -14,7 +14,7 @@
     "language-service-plugin"
   ],
   "bin": {
-    "ts-remote": "./bin/ts-remote.js"
+    "ts-remote": "bin/ts-remote.js"
   },
   "scripts": {
     "prettier:fix": "prettier ./packages/**/*.ts --write",

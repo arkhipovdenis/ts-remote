@@ -84,6 +84,7 @@ for (const field of PUBLISH_FIELDS) {
   }
 }
 
+distPackage['scripts'] = {};
 fs.writeFileSync(path.resolve(OUTPUT_PATH, 'package.json'), JSON.stringify(distPackage, null, 2) + '\n');
 console.log('  Generated package.json');
 
