@@ -61,18 +61,13 @@ if (diagnostics.length > 0) {
 
 console.log('  Compiled TypeScript');
 
-// 3. Create bin entry point with shebang
-const cliBinPath = path.resolve(OUTPUT_PATH, 'cli', 'index.js');
+// 3. Create bin entry point
 const binDir = path.resolve(OUTPUT_PATH, 'bin');
+fs.mkdirSync(binDir, { recursive: true });
 const binPath = path.resolve(binDir, 'ts-remote.js');
-
-if (fs.existsSync(cliBinPath)) {
-  fs.mkdirSync(binDir, { recursive: true });
-  const content = fs.readFileSync(cliBinPath, 'utf-8');
-  fs.writeFileSync(binPath, (content.startsWith('#!') ? '' : '#!/usr/bin/env node\n') + content);
-  fs.chmodSync(binPath, 0o755);
-  console.log('  Created bin/ts-remote.js');
-}
+fs.writeFileSync(binPath, '#!/usr/bin/env node\nrequire("../cli/index.js");\n');
+fs.chmodSync(binPath, 0o755);
+console.log('  Created bin/ts-remote.js');
 
 // 4. Build dist/package.json (whitelist approach)
 const sourcePackage = JSON.parse(fs.readFileSync(path.resolve(cwd, 'package.json'), 'utf-8'));
