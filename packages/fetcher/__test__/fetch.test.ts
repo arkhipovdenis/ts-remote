@@ -6,6 +6,7 @@ import os from 'node:os';
 import http from 'node:http';
 import https from 'node:https';
 import fetchRemotes from '../fetch';
+import { INDEX_FILE_NAME } from '../index-file';
 import { LogLevel } from '../../shared/logger';
 import { generateTestCerts } from './test-certs';
 
@@ -143,6 +144,51 @@ describe('fetchRemotes', () => {
     assert.equal(results.length, 2);
     assert.equal(results[0].name, 'app-a');
     assert.equal(results[1].name, 'app-b');
+  });
+
+  it('writes an index .d.ts referencing every cached file', async () => {
+    const url = await createServer((_req, res) => {
+      res.writeHead(200);
+      res.end('declare module "x" {}');
+    });
+
+    const results = await fetchRemotes({
+      remotes: { 'zeta-app': `${url}/z.d.ts`, '@acme/ui': `${url}/ui.d.ts` },
+      cacheDir: tmpDir,
+      logLevel: LogLevel.Silent,
+    });
+
+    const indexPath = path.join(tmpDir, INDEX_FILE_NAME);
+    assert.ok(fs.existsSync(indexPath), 'Index file should be written');
+
+    const content = fs.readFileSync(indexPath, 'utf-8');
+    const refs = content.match(/^\/\/\/ <reference path="([^"]+)" \/>/gm) ?? [];
+    assert.equal(refs.length, 2, 'One reference per remote');
+
+    // Sorted by name, relative to the cache dir, always with a ./ prefix
+    assert.match(refs[0], /path="\.\/acme__ui\.d\.ts"/);
+    assert.match(refs[1], /path="\.\/zeta-app\.d\.ts"/);
+
+    for (const result of results) {
+      const rel = path.relative(tmpDir, result.cachedPath);
+      assert.ok(content.includes(`"./${rel}"`), `Index should reference ${rel}`);
+    }
+  });
+
+  it('skips the index when index: false', async () => {
+    const url = await createServer((_req, res) => {
+      res.writeHead(200);
+      res.end('declare module "x" {}');
+    });
+
+    await fetchRemotes({
+      remotes: { 'my-app': `${url}/types.d.ts` },
+      cacheDir: tmpDir,
+      logLevel: LogLevel.Silent,
+      index: false,
+    });
+
+    assert.equal(fs.existsSync(path.join(tmpDir, INDEX_FILE_NAME)), false);
   });
 
   it('throws on invalid remotes', async () => {

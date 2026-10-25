@@ -58,7 +58,13 @@
     "node": ">=18"
   },
   "peerDependencies": {
+    "@typescript/typescript6": ">=6.0",
     "typescript": ">=4.9"
+  },
+  "peerDependenciesMeta": {
+    "@typescript/typescript6": {
+      "optional": true
+    }
   },
   "lint-staged": {
     "packages/**/*.ts": "prettier --write"

@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import http from 'node:http';
 import { fetchCommand } from '../commands/fetch';
+import { INDEX_FILE_NAME } from '../../fetcher/index-file';
 
 let tmpDir: string;
 let server: http.Server | undefined;
@@ -64,10 +65,13 @@ describe('fetchCommand', () => {
 
     await fetchCommand({ config: configPath, 'cache-dir': cacheDir });
 
-    // Verify files were cached
-    const files = fs.readdirSync(cacheDir).filter((f) => f.endsWith('.d.ts'));
+    // Verify files were cached, plus the plugin-free index
+    const files = fs
+      .readdirSync(cacheDir)
+      .filter((f) => f.endsWith('.d.ts') && f !== INDEX_FILE_NAME);
     assert.equal(files.length, 1);
     assert.ok(files[0].includes('my-app'));
+    assert.ok(fs.existsSync(path.join(cacheDir, INDEX_FILE_NAME)));
   });
 
   it('uses --force to bypass cache', async () => {
@@ -103,7 +107,9 @@ describe('fetchCommand', () => {
 
     await fetchCommand({ config: configPath, 'cache-dir': cacheDir });
 
-    const files = fs.readdirSync(cacheDir).filter((f) => f.endsWith('.d.ts'));
+    const files = fs
+      .readdirSync(cacheDir)
+      .filter((f) => f.endsWith('.d.ts') && f !== INDEX_FILE_NAME);
     assert.equal(files.length, 2);
   });
 

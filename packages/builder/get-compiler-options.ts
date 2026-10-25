@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts from './typescript';
 import path from 'node:path';
 import { BuilderError } from '../shared/errors';
 

@@ -40,6 +40,8 @@ The three pieces are independent — use only what you need.
 npm install -D ts-remote
 ```
 
+Works with TypeScript 4.9 through 6.x out of the box. On **TypeScript 7** (the native compiler, which ships neither the JavaScript Compiler API nor Language Service Plugins) the fetcher and CLI work as-is, consumers resolve remotes through the generated index file instead of the plugin, and the builder needs the official TypeScript 6 compatibility package next to it — see [TypeScript 7 support](#typescript-7-support).
+
 Each part has its own entry point:
 
 | Import | Used by | Purpose |
@@ -280,6 +282,20 @@ Run it in a `postinstall` script or in CI before `tsc` so the cache is warm:
 }
 ```
 
+### Plugin-free resolution (recommended on TypeScript 7)
+
+Every `fetch` also writes `<cacheDir>/ts-remote.index.d.ts`, a script file with one `/// <reference path>` per cached remote. Listing it once in `files` pulls every remote `declare module "..."` into the program — `tsc`, the editor and any build tool see the types with no plugin involved:
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": { /* plugins block as above — still read by `ts-remote fetch` */ },
+  "files": ["node_modules/.ts-remote/ts-remote.index.d.ts"]
+}
+```
+
+The entry is static: adding or removing remotes only changes the generated index, not your tsconfig. The `plugins` block stays as the single source of truth for `remotes`, `cacheDir`, `tls` and `headers`; TypeScript ignores unknown plugin entries, on 7.x included. The index is the only resolution mode available on TypeScript 7, and it works identically on 4.9–6.x — the plugin below is then just an optional nicety for background refresh in the editor. Pass `index: false` to the programmatic fetcher to skip writing it.
+
 ### Programmatic fetcher
 
 The CLI is a thin wrapper over the fetcher API, which you can call directly:
@@ -334,9 +350,9 @@ const results = await fetch({
 });
 ```
 
-### Editor & build-time resolution (plugin)
+### Editor & build-time resolution (plugin, TypeScript ≤ 6)
 
-The `ts-remote` plugin is a [TypeScript Language Service Plugin](https://github.com/microsoft/TypeScript/wiki/Writing-a-Language-Service-Plugin). With the `tsconfig.json` above in place, your editor resolves remote imports against the cached declarations:
+The `ts-remote` plugin is a [TypeScript Language Service Plugin](https://github.com/microsoft/TypeScript/wiki/Writing-a-Language-Service-Plugin). TypeScript 7's native language server does not load such plugins, so on 7.x use the [index file](#plugin-free-resolution-recommended-on-typescript-7) instead. On 4.9–6.x, with the `tsconfig.json` above in place, your editor resolves remote imports against the cached declarations:
 
 ```typescript
 import { User, getUser } from 'my-app'; // ✅ typed from the remote .d.ts
@@ -391,9 +407,28 @@ See [`examples/`](./examples/README.md) for runnable builder examples, including
 
 ---
 
+## TypeScript 7 support
+
+TypeScript 7 replaced the JavaScript compiler with a native one. The `typescript` package no longer exports the Compiler API (`createProgram`, printers, transformers) and the new language server does not load tsserver plugins. What that means per part:
+
+| Part | TypeScript 4.9–6.x | TypeScript 7.x |
+|------|--------------------|----------------|
+| `ts-remote fetch` / `ts-remote/fetcher` | ✅ | ✅ no extra setup |
+| Consumer resolution | ✅ plugin or [index file](#plugin-free-resolution-recommended-on-typescript-7) | ✅ index file only |
+| `ts-remote/plugin` (editor background refresh) | ✅ | ❌ not loadable; use `ts-remote fetch` in `postinstall`/CI |
+| `ts-remote/builder` | ✅ | ✅ with `@typescript/typescript6` installed |
+
+The builder runs at build time on the producer and needs the classic Compiler API. On TypeScript 7 install Microsoft's compatibility package alongside it — the builder detects a `typescript` without the API and picks the fallback up automatically:
+
+```bash
+npm install -D @typescript/typescript6
+```
+
+Nothing else changes: your application keeps type-checking with the native `tsc`, and `ts-remote/builder` uses TypeScript 6 only to emit the declaration bundle. Without the package the builder fails with the same instruction. The 7.x API is still marked unstable; a native-API backend is planned once it settles.
+
 ## Requirements
 
-- TypeScript >= 4.9
+- TypeScript >= 4.9 (7.x: see above)
 - Node.js >= 18
 
 ## Links

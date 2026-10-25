@@ -8,6 +8,7 @@ import ts from 'typescript';
 import build from '../builder/build';
 import fetchRemotes from '../fetcher/fetch';
 import { TsRemotePlugin } from '../plugin/plugin';
+import { getIndexPath } from '../fetcher/index-file';
 import { LogLevel } from '../shared/logger';
 
 let tmpDir: string;
@@ -155,7 +156,45 @@ export const getSettings = () => appSettings;
     assert.ok(manifest.entries['test-app'], 'Manifest should have test-app entry');
     assert.ok(manifest.entries['test-app'].filePath, 'Manifest entry should have filePath');
 
-    // --- Step 4: Plugin resolves module from cache ---
+    // --- Step 4a: Plugin-free resolution through the generated index ---
+    // This is the only mode available on TypeScript 7 (no tsserver plugins):
+    // the consumer lists the index in tsconfig "files" and the ambient
+    // `declare module` blocks become visible to the program.
+
+    const indexPath = getIndexPath(cacheDir);
+    assert.ok(fs.existsSync(indexPath), 'Fetcher should write the index file');
+
+    const consumerPath = path.join(tmpDir, 'consumer.ts');
+    fs.writeFileSync(
+      consumerPath,
+      `
+import type { User } from 'test-app';
+export const ok: User = { id: '1', name: 'x' };
+export const bad: User = { id: 1, name: 'x' };
+export const locale: string = appSettings.locale;
+`,
+    );
+
+    const consumerProgram = ts.createProgram([consumerPath, indexPath], {
+      strict: true,
+      noEmit: true,
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      types: [],
+    });
+    const consumerDiagnostics = ts.getPreEmitDiagnostics(consumerProgram).map((d) => ({
+      code: d.code,
+      message: ts.flattenDiagnosticMessageText(d.messageText, '\n'),
+    }));
+
+    assert.deepEqual(
+      consumerDiagnostics.map((d) => d.code),
+      [2322],
+      `Only the deliberate type error should be reported, got: ${JSON.stringify(consumerDiagnostics)}`,
+    );
+
+    // --- Step 4b: Plugin resolves module from cache (TypeScript <= 6) ---
 
     const unresolvedResult = {
       resolvedModule: undefined,

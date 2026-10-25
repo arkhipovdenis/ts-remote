@@ -39,6 +39,35 @@ describe('validateRemotes', () => {
 });
 
 describe('readPluginConfig', () => {
+  it('accepts comments and trailing commas (JSONC)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-remote-test-'));
+    const filePath = path.join(dir, 'tsconfig.json');
+    fs.writeFileSync(
+      filePath,
+      `{
+  // consumer config
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "ts-remote",
+        "remotes": { "my-app": "https://cdn.example.com/types.d.ts", }, /* trailing comma */
+      },
+    ],
+  },
+}`,
+    );
+
+    const config = readPluginConfig(filePath);
+    assert.deepEqual(config.remotes, { 'my-app': 'https://cdn.example.com/types.d.ts' });
+  });
+
+  it('reports malformed JSON with the tsconfig path', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-remote-test-'));
+    const filePath = path.join(dir, 'tsconfig.json');
+    fs.writeFileSync(filePath, '{ "compilerOptions": ');
+    assert.throws(() => readPluginConfig(filePath), /Failed to read tsconfig at .*tsconfig\.json/);
+  });
+
   it('reads valid config from tsconfig.json', () => {
     const filePath = createTempTsconfig({
       compilerOptions: {

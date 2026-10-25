@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Added
+
+- **TypeScript 7 support** (see the new README section). TypeScript 7 ships neither the JavaScript Compiler API nor tsserver plugin loading, so the three parts now degrade independently instead of all breaking at `import ts from 'typescript'`:
+  - **Fetcher / CLI**: no longer depend on the `typescript` package at runtime. `tsconfig.json` is read with a small built-in JSONC parser (comments and trailing commas accepted; `extends` is still not followed, as before) instead of `ts.readConfigFile`.
+  - **Fetcher**: `fetchRemotes` writes `<cacheDir>/ts-remote.index.d.ts` — one `/// <reference path>` per cached remote — unless `index: false`. Listing that single file in the consumer's tsconfig `files` resolves every remote `declare module` with no Language Service Plugin, on TypeScript 4.9 through 7.x alike. `INDEX_FILE_NAME`, `getIndexPath` and `writeIndexFile` are exported from `ts-remote/fetcher`; `ts-remote fetch` prints the index path.
+  - **Builder**: loads the Compiler API through a shim (`builder/typescript.js`) that falls back to `@typescript/typescript6` when the installed `typescript` is 7.x (its root export is only `{ version }`). Without the fallback package the builder fails with an actionable `BuilderError` naming the `npm install -D @typescript/typescript6` fix. `@typescript/typescript6` is declared as an optional peer dependency.
+
+### 📚 Docs
+
+- README: plugin-free resolution section, a per-part TypeScript 6 vs 7 support matrix, and the plugin section now states it is TypeScript ≤ 6 only.
+
+### 🧪 Tests
+
+- JSONC parser, index-file generation, the Compiler API loader (fallback and both error paths), JSONC tsconfig handling in `readPluginConfig`, and an e2e step that type-checks a consumer through the generated index with a real `createProgram` instead of the plugin.
+
 ## [2.2.0] - 2026-07-12
 
 ### ✨ Added
