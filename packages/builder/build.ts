@@ -1,6 +1,6 @@
 import path from 'node:path';
 import process from 'node:process';
-import ts from 'typescript';
+import ts from './typescript';
 import { BuilderOptions, DeclarationVariant, ModuleName } from './contract-public';
 import { validateExtension } from './validate-extension';
 import { getCompilerOptions } from './get-compiler-options';

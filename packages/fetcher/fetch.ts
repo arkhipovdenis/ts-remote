@@ -4,6 +4,7 @@ import { FetcherOptions, FetchResult, TlsOptions } from './contract-public';
 import { CacheManager } from './cache';
 import { httpGet, HttpGetResult } from './http';
 import { validateRemotes } from './config';
+import { writeIndexFile } from './index-file';
 import { Logger, LogLevel } from '../shared/logger';
 import { FetchError } from '../shared/errors';
 
@@ -29,7 +30,10 @@ export type FetchOneOptions = {
  *
  * Downloads declaration files from the configured URLs (in parallel) and
  * stores them in a local cache directory for use by the TS Language Service
- * Plugin or direct consumption.
+ * Plugin or direct consumption. Unless `index: false`, also (re)writes
+ * `<cacheDir>/ts-remote.index.d.ts`, which references every cached file so
+ * consumers can list a single entry in `tsconfig.json` `files` instead of
+ * using the plugin.
  *
  * @example
  * ```typescript
@@ -56,6 +60,7 @@ export default async function fetchRemotes(options: FetcherOptions): Promise<Fet
     tls,
     headers,
     staleIfError = true,
+    index = true,
   } = options;
 
   validateRemotes(remotes);
@@ -63,7 +68,7 @@ export default async function fetchRemotes(options: FetcherOptions): Promise<Fet
   const logger = new Logger(logLevel);
   const cache = new CacheManager(cacheDir, logger);
 
-  return Promise.all(
+  const results = await Promise.all(
     Object.entries(remotes).map(([name, url]) =>
       fetchOne(name, url, {
         cache,
@@ -78,6 +83,13 @@ export default async function fetchRemotes(options: FetcherOptions): Promise<Fet
       }),
     ),
   );
+
+  if (index) {
+    const indexPath = writeIndexFile(cacheDir, results);
+    logger.debug(`Index written to ${indexPath}`);
+  }
+
+  return results;
 }
 
 /**

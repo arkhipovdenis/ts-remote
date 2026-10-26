@@ -106,6 +106,13 @@ export type FetcherOptions = {
    * @default true
    */
   staleIfError?: boolean;
+
+  /**
+   * Write `<cacheDir>/ts-remote.index.d.ts` referencing every cached remote,
+   * for plugin-free resolution via `tsconfig.json` `files`.
+   * @default true
+   */
+  index?: boolean;
 };
 
 /**

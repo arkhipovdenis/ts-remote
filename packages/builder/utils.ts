@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts from './typescript';
 
 /**
  * Removes 'declare' modifiers from inside 'declare module' or 'declare namespace' blocks

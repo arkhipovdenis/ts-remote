@@ -21,6 +21,7 @@ const PUBLISH_FIELDS = [
   'homepage',
   'engines',
   'peerDependencies',
+  'peerDependenciesMeta',
 ] as const;
 
 const FILES_TO_COPY = ['LICENSE', 'README.md'] as const;
@@ -38,6 +39,9 @@ const entryFiles = [
   ts.sys.resolvePath(`${cwd}/packages/fetcher/index.ts`),
   ts.sys.resolvePath(`${cwd}/packages/plugin/index.ts`),
   ts.sys.resolvePath(`${cwd}/packages/cli/index.ts`),
+  // Reached only from the hand-written builder/typescript.js shim, so it is
+  // not discoverable from the entry points above.
+  ts.sys.resolvePath(`${cwd}/packages/builder/load-typescript.ts`),
 ];
 
 const program = ts.createProgram(entryFiles, {
@@ -101,5 +105,15 @@ for (const fileName of FILES_TO_COPY) {
   fs.cpSync(path.resolve(cwd, fileName), path.resolve(OUTPUT_PATH, fileName));
 }
 
-console.log('  Copied LICENSE, README.md');
+// The builder's Compiler API shim is a hand-written .js/.d.ts pair (so the
+// module carries both the runtime value and the `ts.*` type namespace); tsc
+// neither emits nor copies it.
+for (const fileName of ['typescript.js', 'typescript.d.ts']) {
+  fs.cpSync(
+    path.resolve(cwd, 'packages/builder', fileName),
+    path.resolve(OUTPUT_PATH, 'builder', fileName),
+  );
+}
+
+console.log('  Copied LICENSE, README.md, builder/typescript.{js,d.ts}');
 console.log('Done');

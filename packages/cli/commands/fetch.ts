@@ -2,7 +2,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { readPluginConfig } from '../../fetcher/config';
 import fetchRemotes from '../../fetcher/fetch';
+import { getIndexPath } from '../../fetcher/index-file';
 import { Logger, LogLevel } from '../../shared/logger';
+
+const DEFAULT_CACHE_DIR = 'node_modules/.ts-remote';
 
 /**
  * Execute the `ts-remote fetch` command.
@@ -44,6 +47,14 @@ export async function fetchCommand(flags: Record<string, string | boolean>): Pro
       logger.info(`${result.name}: fetched from ${result.url}`);
     }
   }
+
+  const indexPath = path.relative(
+    cwd,
+    getIndexPath(cacheDir ?? pluginConfig.cacheDir ?? DEFAULT_CACHE_DIR),
+  );
+  logger.info(
+    `index: ${indexPath} (list it in tsconfig "files" to resolve remotes without the plugin)`,
+  );
 
   logger.timeEnd('fetch');
 }

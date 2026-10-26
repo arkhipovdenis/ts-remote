@@ -1,35 +1,36 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import ts from 'typescript';
 import { ConfigError } from '../shared/errors';
+import { parseJsonc } from '../shared/jsonc';
 import { RemoteMap, TlsOptions, TsRemotePluginConfig } from './contract-public';
 
 /**
  * Read the ts-remote plugin configuration from a tsconfig.json file.
  *
  * Looks for an entry in `compilerOptions.plugins` where `name === "ts-remote"`.
+ * Comments and trailing commas are accepted; `extends` is not followed, so the
+ * plugin entry must live in the file itself.
  * Throws `ConfigError` if the tsconfig cannot be read or the plugin is not configured.
  */
 export function readPluginConfig(tsconfigPath: string): TsRemotePluginConfig {
   let config: Record<string, unknown>;
 
+  let text: string;
+
   try {
-    const result = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
-
-    if (result.error) {
-      throw new ConfigError(
-        `Failed to read tsconfig at ${tsconfigPath}: ${ts.flattenDiagnosticMessageText(
-          result.error.messageText,
-          '\n',
-        )}`,
-      );
-    }
-
-    config = result.config as Record<string, unknown>;
+    text = fs.readFileSync(tsconfigPath, 'utf-8');
   } catch (err) {
-    if (err instanceof ConfigError) throw err;
     throw new ConfigError(`Failed to read tsconfig at ${tsconfigPath}`, { cause: err });
+  }
+
+  try {
+    config = (parseJsonc(text) ?? {}) as Record<string, unknown>;
+  } catch (err) {
+    throw new ConfigError(
+      `Failed to read tsconfig at ${tsconfigPath}: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
   }
 
   const compilerOptions = config['compilerOptions'] as Record<string, unknown> | undefined;
